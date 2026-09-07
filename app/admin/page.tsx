@@ -17,10 +17,19 @@ import {
   Video,
   Plus,
   Link as LinkIcon,
-  RefreshCw
+  RefreshCw,
+  FolderUp,
+  CopyX
 } from 'lucide-react';
 import { Drawing, Comment } from '@/lib/db';
 import { useLanguage } from '@/components/LanguageContext';
+
+interface DuplicateGroup {
+  groupId: string;
+  matchType: 'exact_hash' | 'stem_match';
+  reason: string;
+  drawings: (Drawing & { fileSize?: number; fileHash?: string })[];
+}
 
 export default function AdminPage() {
   const { t } = useLanguage();
@@ -28,7 +37,23 @@ export default function AdminPage() {
   const [pin, setPin] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [activeTab, setActiveTab] = useState<'upload' | 'comments' | 'manage'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'batch' | 'duplicates' | 'comments' | 'manage'>('upload');
+
+  // Batch Upload State
+  const [batchFiles, setBatchFiles] = useState<File[]>([]);
+  const [batchCategory, setBatchCategory] = useState('Малюнки');
+  const [batchDate, setBatchDate] = useState('');
+  const [isBatchUploading, setIsBatchUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [batchResult, setBatchResult] = useState<{ addedCount: number; skippedCount: number; message: string } | null>(null);
+  const [batchError, setBatchError] = useState('');
+
+  // Duplicates State
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [redundantCount, setRedundantCount] = useState(0);
+  const [isLoadingDuplicates, setIsLoadingDuplicates] = useState(false);
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+  const [duplicateMessage, setDuplicateMessage] = useState('');
 
   // Data states
   const [drawings, setDrawings] = useState<Drawing[]>([]);
@@ -142,8 +167,131 @@ export default function AdminPage() {
 
       setDrawings(dData.drawings || []);
       setComments(cData.comments || []);
+      loadDuplicates(currentPin);
     } catch (err) {
       console.error('Error loading admin data:', err);
+    }
+  };
+
+  // Load duplicates list
+  const loadDuplicates = async (currentPin = pin) => {
+    setIsLoadingDuplicates(true);
+    setDuplicateMessage('');
+    try {
+      const res = await fetch('/api/admin/duplicates', {
+        headers: { 'x-admin-pin': currentPin },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDuplicateGroups(data.groups || []);
+        setRedundantCount(data.redundantCount || 0);
+      }
+    } catch (e) {
+      console.error('Failed to load duplicates:', e);
+    } finally {
+      setIsLoadingDuplicates(false);
+    }
+  };
+
+  // Auto clean duplicates
+  const handleAutoCleanDuplicates = async () => {
+    if (!confirm('Видалити всі зайві копії автоматично? Буде збережено по одній оригінальній версії кожного малюнка.')) return;
+    setIsCleaningDuplicates(true);
+    try {
+      const res = await fetch('/api/admin/duplicates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': pin,
+        },
+        body: JSON.stringify({ action: 'auto_clean' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDuplicateMessage(`✓ Успішно видалено ${data.removedCount} дублікатів! У галереї залишилося ${data.remainingDrawingsCount} унікальних малюнків.`);
+        loadAdminData();
+        loadDuplicates();
+      } else {
+        setDuplicateMessage(`Помилка: ${data.error || 'Не вдалося очистити дублікати'}`);
+      }
+    } catch {
+      setDuplicateMessage('Помилка мережі при очищенні дублікатів');
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  };
+
+  // Delete specific duplicate
+  const handleDeleteSpecificDuplicate = async (drawingId: string) => {
+    if (!confirm('Видалити цей конкретний дублікат?')) return;
+    try {
+      const res = await fetch('/api/admin/duplicates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': pin,
+        },
+        body: JSON.stringify({ action: 'delete_ids', ids: [drawingId] }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        loadAdminData();
+        loadDuplicates();
+      }
+    } catch (e) {
+      console.error('Error deleting duplicate:', e);
+    }
+  };
+
+  // Handle batch files selection (from files input or folder input or drag-and-drop)
+  const handleBatchFiles = (newFiles: FileList | File[]) => {
+    const list = Array.from(newFiles).filter((f) => {
+      const ext = f.name.slice((f.name.lastIndexOf('.') - 1 >>> 0) + 2).toLowerCase();
+      return ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+    });
+    setBatchFiles(list);
+    setBatchResult(null);
+    setBatchError('');
+  };
+
+  // Upload batch
+  const handleBatchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (batchFiles.length === 0) return;
+
+    setIsBatchUploading(true);
+    setBatchError('');
+    setBatchResult(null);
+
+    try {
+      const formData = new FormData();
+      batchFiles.forEach((file) => formData.append('files', file));
+      formData.append('category', batchCategory);
+      if (batchDate) formData.append('date', batchDate);
+
+      const res = await fetch('/api/admin/batch-upload', {
+        method: 'POST',
+        headers: { 'x-admin-pin': pin },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setBatchResult({
+          addedCount: data.addedCount,
+          skippedCount: data.skippedCount,
+          message: `✓ Успішно додано ${data.addedCount} малюнків! ${data.skippedCount > 0 ? `(${data.skippedCount} пропущено як дублікати)` : ''}`,
+        });
+        setBatchFiles([]);
+        loadAdminData();
+        loadDuplicates();
+      } else {
+        setBatchError(data.error || 'Помилка при пакетному завантаженні');
+      }
+    } catch {
+      setBatchError('Помилка мережі при завантаженні файлів');
+    } finally {
+      setIsBatchUploading(false);
     }
   };
 
@@ -503,6 +651,40 @@ export default function AdminPage() {
 
           <button
             type="button"
+            onClick={() => setActiveTab('batch')}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'batch'
+                ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_0_15px_rgba(14,165,233,0.35)]'
+                : 'bg-slate-900/80 text-purple-200 hover:bg-slate-800 border border-purple-500/30'
+            }`}
+          >
+            <FolderUp className="w-4 h-4" />
+            <span>{t.tabBatch}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('duplicates');
+              loadDuplicates();
+            }}
+            className={`px-4 py-2.5 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all cursor-pointer relative ${
+              activeTab === 'duplicates'
+                ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-[0_0_15px_rgba(20,184,166,0.35)]'
+                : 'bg-slate-900/80 text-purple-200 hover:bg-slate-800 border border-purple-500/30'
+            }`}
+          >
+            <CopyX className="w-4 h-4" />
+            <span>{t.tabDuplicates}</span>
+            {redundantCount > 0 && (
+              <span className="ml-1 px-2 py-0.5 bg-rose-500 text-white rounded-full text-xs font-extrabold animate-pulse">
+                {redundantCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('comments')}
             className={`px-4 py-2.5 rounded-2xl font-bold text-sm flex items-center gap-2 transition-all cursor-pointer relative ${
               activeTab === 'comments'
@@ -705,6 +887,390 @@ export default function AdminPage() {
                 <span>{uploading ? t.sending : t.btnPublish}</span>
               </button>
             </form>
+          </div>
+        )}
+
+        {/* TAB: BATCH FOLDER UPLOAD */}
+        {activeTab === 'batch' && (
+          <div className="bg-white rounded-3xl p-5 sm:p-8 border-2 border-slate-100 shadow-md space-y-6">
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                <FolderUp className="w-5 h-5 text-sky-600" />
+                <span>Масове завантаження малюнків з папки</span>
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                Виберіть цілу папку зі сканами на вашому пристрої або виділіть багато файлів одразу. 
+                Система автоматично виявить та пропустить дублікати тих малюнків, які вже є в галереї.
+              </p>
+            </div>
+
+            {batchResult && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-emerald-800 text-sm font-semibold">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div>
+                  <p className="font-bold">{batchResult.message}</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">
+                    Додано {batchResult.addedCount} нових робіт Тані.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {batchError && (
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 flex items-center gap-3 text-rose-800 text-sm font-semibold">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                <span>{batchError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleBatchSubmit} className="space-y-6">
+              {/* Drop / Selection Zone */}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  if (e.dataTransfer.files) handleBatchFiles(e.dataTransfer.files);
+                }}
+                className={`border-2 border-dashed rounded-3xl p-6 sm:p-8 text-center transition-all ${
+                  isDragging
+                    ? 'border-sky-500 bg-sky-50 scale-[1.01]'
+                    : 'border-slate-300 hover:border-sky-400 bg-slate-50/60'
+                }`}
+              >
+                <div className="max-w-md mx-auto flex flex-col items-center gap-3">
+                  <div className="w-14 h-14 rounded-2xl bg-sky-100 text-sky-600 flex items-center justify-center shadow-xs">
+                    <FolderUp className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <p className="text-base font-extrabold text-slate-800">
+                      Перетягніть файли або виберіть папку
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Підтримуються формати JPG, JPEG, PNG, WEBP
+                    </p>
+                  </div>
+
+                  {/* Dual Upload Buttons: Folder or Files */}
+                  <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+                    <label
+                      htmlFor="batch-folder-input"
+                      className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-xs flex items-center gap-2 active:scale-95"
+                    >
+                      <FolderUp className="w-4 h-4" />
+                      <span>📁 Вибрати цілу папку</span>
+                    </label>
+                    <input
+                      id="batch-folder-input"
+                      type="file"
+                      multiple
+                      ref={(el) => {
+                        if (el) {
+                          el.setAttribute('webkitdirectory', '');
+                          el.setAttribute('directory', '');
+                        }
+                      }}
+                      onChange={(e) => e.target.files && handleBatchFiles(e.target.files)}
+                      className="hidden"
+                    />
+
+                    <label
+                      htmlFor="batch-files-input"
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-xs flex items-center gap-2 active:scale-95"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      <span>🖼️ Вибрати окремі файли</span>
+                    </label>
+                    <input
+                      id="batch-files-input"
+                      type="file"
+                      multiple
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      onChange={(e) => e.target.files && handleBatchFiles(e.target.files)}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Files Summary & Parameters */}
+              {batchFiles.length > 0 && (
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-slate-800">
+                        Обрано файлів: <span className="text-sky-600 font-black">{batchFiles.length}</span>
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">
+                        ({(batchFiles.reduce((acc, f) => acc + f.size, 0) / (1024 * 1024)).toFixed(1)} МБ)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBatchFiles([])}
+                      className="text-xs text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer self-start sm:self-auto"
+                    >
+                      ✕ Очистити вибір
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Категорія для цієї пачки:
+                      </label>
+                      <select
+                        value={batchCategory}
+                        onChange={(e) => setBatchCategory(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:border-sky-500"
+                      >
+                        <option value="Малюнки">Малюнки (загальна)</option>
+                        <option value="Тваринки">Тваринки 🐱</option>
+                        <option value="Казки">Казки & Персонажі 🧚‍♀️</option>
+                        <option value="Космос">Космос & Пригоди 🚀</option>
+                        <option value="Сім'я">Сім'я & Любов ❤️</option>
+                        <option value="Природа">Природа & Квіти 🌺</option>
+                        <option value="Інше">Інше ✨</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Дата створення (необов'язково):
+                      </label>
+                      <input
+                        type="date"
+                        value={batchDate}
+                        onChange={(e) => setBatchDate(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-800 focus:outline-none focus:border-sky-500"
+                      />
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Якщо залишити порожнім — малюнки будуть без прив'язки до дати
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Preview file chips */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">
+                      Список файлів у черзі:
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-white rounded-xl border border-slate-200">
+                      {batchFiles.slice(0, 30).map((file, idx) => (
+                        <span
+                          key={idx}
+                          className="text-[11px] font-medium bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200 truncate max-w-[180px]"
+                          title={file.name}
+                        >
+                          📄 {file.name}
+                        </span>
+                      ))}
+                      {batchFiles.length > 30 && (
+                        <span className="text-[11px] font-bold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-md border border-sky-200">
+                          + ще {batchFiles.length - 30} файлів...
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Batch Submit Button */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isBatchUploading}
+                      className="w-full sm:w-auto px-7 py-3.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-extrabold rounded-2xl shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isBatchUploading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>Завантажую {batchFiles.length} файлів...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FolderUp className="w-4 h-4" />
+                          <span>Завантажити {batchFiles.length} малюнків у галерею 🚀</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          </div>
+        )}
+
+        {/* TAB: DUPLICATES SCAN & CLEAN */}
+        {activeTab === 'duplicates' && (
+          <div className="bg-white rounded-3xl p-5 sm:p-8 border-2 border-slate-100 shadow-md space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                  <CopyX className="w-5 h-5 text-teal-600" />
+                  <span>Пошук та очищення дублікатів</span>
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Виявлення файлів-двійників за цифровим відбитком (SHA-256) та ідентичними іменами (.jpeg / .jpg).
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadDuplicates()}
+                disabled={isLoadingDuplicates}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDuplicates ? 'animate-spin' : ''}`} />
+                <span>{isLoadingDuplicates ? 'Сканую...' : 'Оновити пошук 🔄'}</span>
+              </button>
+            </div>
+
+            {duplicateMessage && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-3 text-emerald-800 text-sm font-semibold">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>{duplicateMessage}</span>
+              </div>
+            )}
+
+            {/* Status Summary Banner */}
+            {redundantCount === 0 && !isLoadingDuplicates ? (
+              <div className="p-8 text-center bg-teal-50/60 border-2 border-dashed border-teal-200 rounded-3xl">
+                <div className="w-14 h-14 rounded-2xl bg-teal-100 text-teal-700 flex items-center justify-center mx-auto mb-3">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <h3 className="text-base font-extrabold text-teal-950">
+                  🎉 Дублікатів не знайдено!
+                </h3>
+                <p className="text-xs text-teal-700 max-w-md mx-auto mt-1">
+                  Усі малюнки в галереї є унікальними. Немає жодного зайвого файлу-двійника.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Clean in 1 click banner */}
+                <div className="p-5 bg-gradient-to-r from-amber-50 to-rose-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-sm text-slate-800">
+                        Знайдено груп дублікатів: <span className="text-rose-600 font-black">{duplicateGroups.length}</span>
+                      </span>
+                      <span className="px-2.5 py-0.5 bg-rose-100 text-rose-700 text-xs font-black rounded-full">
+                        {redundantCount} зайвих копій
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Очищення автоматично збереже по 1 оригінальному файлу з кожної пари та безпечно видалить лише надлишкові дублікати.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoCleanDuplicates}
+                    disabled={isCleaningDuplicates}
+                    className="px-5 py-3 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 text-white font-extrabold rounded-xl text-xs shadow-md flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {isCleaningDuplicates ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Очищення...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        <span>Очистити всі дублікати в 1 клік ({redundantCount}) 🧹</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Duplicates Groups List */}
+                <div className="space-y-4">
+                  {duplicateGroups.map((group, gIdx) => (
+                    <div
+                      key={group.groupId || gIdx}
+                      className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black bg-slate-200 text-slate-800 px-2 py-0.5 rounded-md">
+                            #{gIdx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-slate-700">
+                            {group.reason}
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          {group.drawings.length} копії в групі
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                        {group.drawings.map((d, dIdx) => {
+                          const isPrimary = dIdx === 0;
+                          return (
+                            <div
+                              key={d.id}
+                              className={`p-3 rounded-xl border transition-all flex flex-col justify-between ${
+                                isPrimary
+                                  ? 'bg-emerald-50/80 border-emerald-300'
+                                  : 'bg-rose-50/60 border-rose-200'
+                              }`}
+                            >
+                              <div>
+                                <div className="h-36 relative rounded-lg overflow-hidden bg-slate-900 mb-2 border border-slate-200">
+                                  <img
+                                    src={d.imageUrl}
+                                    alt={d.title}
+                                    className="w-full h-full object-contain"
+                                  />
+                                  <span
+                                    className={`absolute top-1.5 left-1.5 text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs ${
+                                      isPrimary
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-rose-500 text-white'
+                                    }`}
+                                  >
+                                    {isPrimary ? '✓ Оригінал (залишиться)' : '✕ Дублікат (до видалення)'}
+                                  </span>
+                                </div>
+
+                                <h4 className="text-xs font-extrabold text-slate-800 truncate" title={d.title}>
+                                  {d.title}
+                                </h4>
+                                <p className="text-[11px] text-slate-500 truncate font-mono mt-0.5" title={d.imageUrl}>
+                                  {d.imageUrl.replace('/drawings/', '')}
+                                </p>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-1">
+                                  <span>{d.category}</span>
+                                  {d.date && <span>• {d.date}</span>}
+                                  <span>• ⭐ {d.likesCount || 0}</span>
+                                </div>
+                              </div>
+
+                              {!isPrimary && (
+                                <div className="pt-2 mt-2 border-t border-rose-200/60">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSpecificDuplicate(d.id)}
+                                    className="w-full py-1.5 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-all cursor-pointer active:scale-95"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Видалити цей файл</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

@@ -88,6 +88,8 @@ export interface Translations {
   adminEnterBtn: string;
   adminLogout: string;
   tabUpload: string;
+  tabBatch: string;
+  tabDuplicates: string;
   tabComments: string;
   tabManage: string;
   uploadTitle: string;
@@ -191,7 +193,9 @@ export const translations: Record<Language, Translations> = {
     adminPinPlaceholder: 'PIN-код (напр. 2026)',
     adminEnterBtn: 'Увійти до панелі ✨',
     adminLogout: 'Вийти',
-    tabUpload: 'Додати малюнок',
+    tabUpload: 'Один малюнок',
+    tabBatch: 'Масове завантаження',
+    tabDuplicates: 'Пошук дублікатів',
     tabComments: 'Модерація побажань',
     tabManage: 'Усі малюнки',
     uploadTitle: 'Опублікувати новий малюнок',
@@ -294,7 +298,9 @@ export const translations: Record<Language, Translations> = {
     adminPinPlaceholder: 'PIN-Code (z.B. 2026)',
     adminEnterBtn: 'Anmelden ✨',
     adminLogout: 'Abmelden',
-    tabUpload: 'Bild hochladen',
+    tabUpload: 'Einzelbild',
+    tabBatch: 'Stapel-Upload',
+    tabDuplicates: 'Duplikate',
     tabComments: 'Wünsche prüfen',
     tabManage: 'Alle Bilder',
     uploadTitle: 'Neues Kunstwerk veröffentlichen',
@@ -397,7 +403,9 @@ export const translations: Record<Language, Translations> = {
     adminPinPlaceholder: 'PIN code (e.g. 2026)',
     adminEnterBtn: 'Enter Panel ✨',
     adminLogout: 'Log Out',
-    tabUpload: 'Upload Drawing',
+    tabUpload: 'Single Upload',
+    tabBatch: 'Batch Upload',
+    tabDuplicates: 'Duplicates',
     tabComments: 'Moderate Wishes',
     tabManage: 'All Drawings',
     uploadTitle: 'Publish a New Artwork',
