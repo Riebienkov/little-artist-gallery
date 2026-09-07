@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Star } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { getLocalLikeCount, saveLocalLike } from '@/lib/likesStorage';
 
 interface StarButtonProps {
   drawingId: string;
@@ -17,9 +18,27 @@ export default function StarButton({
   onLikeAdded,
   size = 'md',
 }: StarButtonProps) {
-  const [likes, setLikes] = useState(initialLikes);
+  const [likes, setLikes] = useState(() => {
+    return Math.max(initialLikes || 0, getLocalLikeCount(drawingId));
+  });
   const [isAnimating, setIsAnimating] = useState(false);
   const [clickCount, setClickCount] = useState(0);
+
+  useEffect(() => {
+    const local = getLocalLikeCount(drawingId);
+    setLikes((prev) => Math.max(prev, initialLikes || 0, local));
+  }, [initialLikes, drawingId]);
+
+  useEffect(() => {
+    const handleSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ drawingId: string; userLikes: number }>;
+      if (customEvent.detail && customEvent.detail.drawingId === drawingId) {
+        setLikes((prev) => Math.max(prev, customEvent.detail.userLikes));
+      }
+    };
+    window.addEventListener('tanja-star-update', handleSync);
+    return () => window.removeEventListener('tanja-star-update', handleSync);
+  }, [drawingId]);
 
   const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -40,7 +59,8 @@ export default function StarButton({
     });
 
     setIsAnimating(true);
-    const updated = likes + 1;
+    const localUpdated = saveLocalLike(drawingId);
+    const updated = Math.max(likes + 1, localUpdated);
     setLikes(updated);
     setClickCount((prev) => prev + 1);
 
@@ -55,11 +75,15 @@ export default function StarButton({
         body: JSON.stringify({ drawingId }),
       });
       const data = await res.json();
-      if (data.success && onLikeAdded) {
-        onLikeAdded(data.likesCount, data.totalStars);
+      if (data.success) {
+        const finalLikes = Math.max(updated, data.likesCount || 0);
+        setLikes(finalLikes);
+        if (onLikeAdded) {
+          onLikeAdded(finalLikes, data.totalStars);
+        }
       }
     } catch (err) {
-      console.error('Failed to register like:', err);
+      console.error('Failed to register like on server (saved locally):', err);
     }
   };
 

@@ -20,6 +20,7 @@ import {
 import { Drawing, Comment } from '@/lib/db';
 import StarButton from './StarButton';
 import { useLanguage } from './LanguageContext';
+import GildedFrame from './GildedFrame';
 
 interface DrawingModalProps {
   drawing: Drawing | null;
@@ -146,8 +147,24 @@ export default function DrawingModal({ drawing, onClose, onStarUpdate, onDrawing
   const hasVideo = Boolean(drawing.videoUrl);
   const hasMultipleMedia = hasAi || hasVideo;
 
-  const handleRotate = () => {
-    setCurrentRotation((prev) => (prev + 90) % 360);
+  const handleRotate = async () => {
+    const next = (currentRotation + 90) % 360;
+    setCurrentRotation(next);
+    const pin = typeof window !== 'undefined' ? sessionStorage.getItem('admin_pin') || '' : '';
+    if (pin && drawing) {
+      try {
+        await fetch(`/api/drawings/${drawing.id}/rotate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-pin': pin,
+          },
+          body: JSON.stringify({ rotation: next }),
+        });
+      } catch (err) {
+        console.error('Error saving rotation from modal:', err);
+      }
+    }
   };
 
   const handleSubmitComment = async (e: React.FormEvent) => {
@@ -268,16 +285,30 @@ export default function DrawingModal({ drawing, onClose, onStarUpdate, onDrawing
 
             {/* TAB 1: ORIGINAL DRAWING */}
             {activeMediaTab === 'original' && (
-              <div className="flex items-center justify-center w-full h-full">
-                <img
-                  src={drawing.imageUrl}
-                  alt={drawing.title}
-                  style={{
-                    transform: `rotate(${currentRotation}deg)`,
-                    transition: 'transform 0.3s ease',
-                  }}
-                  className="max-h-[50vh] w-auto max-w-full object-contain rounded-xl shadow-lg"
-                />
+              <div className="flex items-center justify-center w-full h-full p-2">
+                {drawing.frameStyle && drawing.frameStyle !== 'none' ? (
+                  <GildedFrame styleName={drawing.frameStyle} title={drawing.title} showPlate={true} className="max-h-[50vh] max-w-[95%]">
+                    <img
+                      src={drawing.imageUrl}
+                      alt={drawing.title}
+                      style={{
+                        transform: `rotate(${currentRotation}deg)`,
+                        transition: 'transform 0.3s ease',
+                      }}
+                      className="max-h-[44vh] w-auto max-w-full object-contain rounded-xs shadow-md"
+                    />
+                  </GildedFrame>
+                ) : (
+                  <img
+                    src={drawing.imageUrl}
+                    alt={drawing.title}
+                    style={{
+                      transform: `rotate(${currentRotation}deg)`,
+                      transition: 'transform 0.3s ease',
+                    }}
+                    className="max-h-[50vh] w-auto max-w-full object-contain rounded-xl shadow-lg"
+                  />
+                )}
               </div>
             )}
 

@@ -14,6 +14,8 @@ import {
   AlertCircle,
   LogOut,
   RotateCw,
+  RotateCcw,
+  Crop,
   Video,
   Plus,
   Link as LinkIcon,
@@ -26,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Drawing, Comment } from '@/lib/db';
 import { useLanguage } from '@/components/LanguageContext';
+import AdminImageEditorModal from '@/components/AdminImageEditorModal';
 
 interface DuplicateGroup {
   groupId: string;
@@ -88,6 +91,10 @@ export default function AdminPage() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [mediaSavedSuccess, setMediaSavedSuccess] = useState(false);
   const [mediaUploadError, setMediaUploadError] = useState('');
+
+  // Framing & Cropping Workshop State
+  const [framingDrawing, setFramingDrawing] = useState<Drawing | null>(null);
+  const [isFramingOpen, setIsFramingOpen] = useState(false);
 
   // Edit Drawing State (Title, Description, Category, Date)
   const [editingDrawing, setEditingDrawing] = useState<Drawing | null>(null);
@@ -418,8 +425,18 @@ export default function AdminPage() {
     }
   };
 
+  // Framing & Cropping Workshop handlers
+  const handleOpenFraming = (drawing: Drawing) => {
+    setFramingDrawing(drawing);
+    setIsFramingOpen(true);
+  };
+
+  const handleDrawingFramed = (updated: Drawing) => {
+    setDrawings((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+  };
+
   // Rotate an existing drawing permanently
-  const handleRotateDrawing = async (drawingId: string) => {
+  const handleRotateDrawing = async (drawingId: string, direction: 'cw' | 'ccw' = 'cw') => {
     try {
       const activePin = getActivePin();
       const res = await fetch(`/api/drawings/${drawingId}/rotate`, {
@@ -428,15 +445,19 @@ export default function AdminPage() {
           'Content-Type': 'application/json',
           'x-admin-pin': activePin,
         },
+        body: JSON.stringify({ direction }),
       });
       const data = await res.json();
       if (data.success) {
         setDrawings((prev) =>
           prev.map((d) => (d.id === drawingId ? { ...d, rotation: data.rotation } : d))
         );
+      } else {
+        alert(data.error || 'Не вдалося повернути малюнок');
       }
     } catch (err) {
       console.error('Error rotating drawing:', err);
+      alert('Помилка з’єднання при обертанні');
     }
   };
 
@@ -1918,15 +1939,35 @@ export default function AdminPage() {
                           <span>Змінити</span>
                         </button>
 
-                        {/* Rotate 90 deg */}
+                        {/* Quick Rotate -90° */}
                         <button
                           type="button"
-                          onClick={() => handleRotateDrawing(d.id)}
-                          className="text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                          title={t.btnRotate90}
+                          onClick={() => handleRotateDrawing(d.id, 'ccw')}
+                          className="text-amber-700 hover:text-amber-800 font-bold p-1.5 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+                          title="Повернути вліво (-90°)"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Quick Rotate +90° */}
+                        <button
+                          type="button"
+                          onClick={() => handleRotateDrawing(d.id, 'cw')}
+                          className="text-amber-700 hover:text-amber-800 font-bold p-1.5 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer"
+                          title="Повернути вправо (+90°)"
                         >
                           <RotateCw className="w-3.5 h-3.5" />
-                          <span>90°</span>
+                        </button>
+
+                        {/* Studio Workshop: Crop & Gilded Gold Frame */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenFraming(d)}
+                          className="text-amber-950 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-400 hover:from-amber-200 hover:to-yellow-300 font-black flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all shadow-xs cursor-pointer border border-amber-500/50 active:scale-95"
+                          title="Обрізка, поворот та оформлення в золоту раму"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-900" />
+                          <span>Рама / Обрізка</span>
                         </button>
 
                         {/* Manage Derivatives */}
@@ -2126,6 +2167,18 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* Studio Framing & Cropping Workshop Modal */}
+        <AdminImageEditorModal
+          drawing={framingDrawing}
+          isOpen={isFramingOpen}
+          onClose={() => {
+            setIsFramingOpen(false);
+            setFramingDrawing(null);
+          }}
+          onSaved={handleDrawingFramed}
+          adminPin={getActivePin()}
+        />
 
       </main>
     </div>

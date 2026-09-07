@@ -14,14 +14,27 @@ export async function POST(
     }
 
     let targetRotation: number | undefined;
+    let step: number | undefined;
+
     try {
       const body = await req.json();
-      targetRotation = body.rotation;
+      if (typeof body.rotation === 'number') {
+        targetRotation = body.rotation;
+      } else if (typeof body.step === 'number') {
+        step = body.step;
+      } else if (body.direction === 'ccw') {
+        step = -90;
+      } else if (body.direction === 'cw') {
+        step = 90;
+      } else if (body.direction === '180') {
+        step = 180;
+      }
     } catch {
-      // Empty body is fine, defaults to +90 deg
+      // Empty body defaults to step = 90
+      step = 90;
     }
 
-    const newRotation = rotateDrawing(id, targetRotation);
+    const newRotation = rotateDrawing(id, targetRotation, step);
     return NextResponse.json({ success: true, rotation: newRotation });
   } catch (err) {
     console.error('Error rotating drawing:', err);

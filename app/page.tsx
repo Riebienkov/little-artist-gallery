@@ -8,6 +8,7 @@ import DrawingModal from '@/components/DrawingModal';
 import { Drawing } from '@/lib/db';
 import { Sparkles, Puzzle, Palette, Heart, Layers } from 'lucide-react';
 import { useLanguage } from '@/components/LanguageContext';
+import { getLocalLikes } from '@/lib/likesStorage';
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -22,10 +23,14 @@ export default function HomePage() {
     fetch('/api/drawings')
       .then((res) => res.json())
       .then((data) => {
-        setDrawings(data.drawings || []);
-        if (data.stats) {
-          setTotalStars(data.stats.totalStars || 0);
-        }
+        const localLikes = getLocalLikes();
+        const merged = (data.drawings || []).map((d: Drawing) => ({
+          ...d,
+          likesCount: Math.max(d.likesCount || 0, localLikes[d.id] || 0),
+        }));
+        setDrawings(merged);
+        const computedTotal = merged.reduce((sum: number, d: Drawing) => sum + (d.likesCount || 0), 0);
+        setTotalStars(Math.max(data.stats?.totalStars || 0, computedTotal));
       })
       .catch((err) => console.error('Failed to load gallery:', err))
       .finally(() => setLoading(false));

@@ -10,6 +10,7 @@ export interface Drawing {
   description: string;
   imageUrl: string;
   rotation?: number; // 0, 90, 180, 270
+  frameStyle?: 'gold-museum' | 'gold-royal' | 'gold-classic' | 'none';
   derivedImages?: string[]; // URLs of AI reimagined art
   videoUrl?: string; // URL of generated video animation
   sourceFile?: string; // Original filename from sync folder
@@ -53,6 +54,32 @@ const defaultData: DBData = {
   ignoredSyncFiles: [],
 };
 
+const tmpOverlayPath = path.join('/tmp', 'vercel_gallery_runtime.json');
+
+interface RuntimeOverlay {
+  likes: Record<string, number>;
+  comments: Comment[];
+}
+
+function getRuntimeOverlay(): RuntimeOverlay {
+  try {
+    if (process.env.VERCEL && fs.existsSync(tmpOverlayPath)) {
+      return JSON.parse(fs.readFileSync(tmpOverlayPath, 'utf8'));
+    }
+  } catch {}
+  return { likes: {}, comments: [] };
+}
+
+function saveRuntimeOverlay(overlay: RuntimeOverlay): void {
+  try {
+    if (process.env.VERCEL) {
+      fs.writeFileSync(tmpOverlayPath, JSON.stringify(overlay, null, 2), 'utf8');
+    }
+  } catch (err) {
+    console.error('Error writing tmp overlay:', err);
+  }
+}
+
 export function readDB(): DBData {
   try {
     if (!fs.existsSync(dbPath)) {
@@ -64,6 +91,22 @@ export function readDB(): DBData {
     if (!parsed.ignoredSyncFiles) {
       parsed.ignoredSyncFiles = [];
     }
+
+    // On Vercel, merge live dynamic likes and comments from /tmp overlay
+    if (process.env.VERCEL) {
+      const overlay = getRuntimeOverlay();
+      if (overlay.likes) {
+        for (const d of parsed.drawings) {
+          if (overlay.likes[d.id]) {
+            d.likesCount = (d.likesCount || 0) + overlay.likes[d.id];
+          }
+        }
+      }
+      if (overlay.comments && overlay.comments.length > 0) {
+        parsed.comments = [...overlay.comments, ...parsed.comments];
+      }
+    }
+
     return parsed;
   } catch (err) {
     console.error('Error reading db.json:', err);
@@ -72,6 +115,18 @@ export function readDB(): DBData {
 }
 
 export function writeDB(data: DBData): void {
+  if (process.env.VERCEL) {
+    const overlay = getRuntimeOverlay();
+    for (const d of data.drawings) {
+      if (d.likesCount) {
+        overlay.likes[d.id] = d.likesCount;
+      }
+    }
+    overlay.comments = data.comments || [];
+    saveRuntimeOverlay(overlay);
+    return;
+  }
+
   try {
     fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
@@ -123,15 +178,17 @@ export function updateDrawing(id: string, updates: Partial<Drawing>): Drawing | 
   return db.drawings[index];
 }
 
-export function rotateDrawing(id: string, targetRotation?: number): number {
+export function rotateDrawing(id: string, targetRotation?: number, step?: number): number {
   const db = readDB();
   const drawing = db.drawings.find((d) => d.id === id);
   if (!drawing) return 0;
 
   if (targetRotation !== undefined) {
-    drawing.rotation = (targetRotation % 360 + 360) % 360;
+    drawing.rotation = ((targetRotation % 360) + 360) % 360;
+  } else if (step !== undefined) {
+    drawing.rotation = ((((drawing.rotation || 0) + step) % 360) + 360) % 360;
   } else {
-    drawing.rotation = ((drawing.rotation || 0) + 90) % 360;
+    drawing.rotation = (((drawing.rotation || 0) + 90) % 360);
   }
 
   writeDB(db);

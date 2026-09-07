@@ -6,6 +6,8 @@ import StarButton from './StarButton';
 import { Drawing } from '@/lib/db';
 import { useLanguage } from './LanguageContext';
 
+import GildedFrame from './GildedFrame';
+
 interface DrawingCardProps {
   drawing: Drawing;
   onOpenModal: (drawing: Drawing) => void;
@@ -37,6 +39,7 @@ export default function DrawingCard({ drawing, onOpenModal, onStarUpdate, onRota
   const hasDerivatives = (drawing.derivedImages && drawing.derivedImages.length > 0) || Boolean(drawing.videoUrl);
 
   const rotation = drawing.rotation || 0;
+  const hasFrame = drawing.frameStyle && drawing.frameStyle !== 'none';
 
   return (
     <div className="group bg-[#110e28]/85 backdrop-blur-md rounded-3xl overflow-hidden border border-purple-500/25 hover:border-pink-400/60 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:shadow-[0_12px_40px_rgba(236,72,153,0.25)] transition-all duration-300 flex flex-col hover:-translate-y-1">
@@ -45,16 +48,31 @@ export default function DrawingCard({ drawing, onOpenModal, onStarUpdate, onRota
         className="relative aspect-[4/3] w-full bg-[#0a081a]/90 cursor-pointer overflow-hidden flex items-center justify-center p-2.5"
         onClick={() => onOpenModal(drawing)}
       >
-        <img
-          src={drawing.imageUrl}
-          alt={drawing.title}
-          style={{
-            transform: `rotate(${rotation}deg)`,
-            transition: 'transform 0.3s ease',
-          }}
-          className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-103 drop-shadow-md rounded-xl"
-          loading="lazy"
-        />
+        {hasFrame ? (
+          <GildedFrame styleName={drawing.frameStyle} title={drawing.title} className="max-w-[94%] max-h-[94%]">
+            <img
+              src={drawing.imageUrl}
+              alt={drawing.title}
+              style={{
+                transform: `rotate(${rotation}deg)`,
+                transition: 'transform 0.3s ease',
+              }}
+              className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-103 drop-shadow-md rounded-xs"
+              loading="lazy"
+            />
+          </GildedFrame>
+        ) : (
+          <img
+            src={drawing.imageUrl}
+            alt={drawing.title}
+            style={{
+              transform: `rotate(${rotation}deg)`,
+              transition: 'transform 0.3s ease',
+            }}
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-103 drop-shadow-md rounded-xl"
+            loading="lazy"
+          />
+        )}
 
         {/* Category Pill */}
         <div className="absolute top-3 left-3 bg-slate-900/80 backdrop-blur-md border border-purple-500/30 px-3 py-1 rounded-full text-xs font-bold text-purple-200 shadow-sm flex items-center gap-1.5">
