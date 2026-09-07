@@ -111,6 +111,15 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error('Error during batch upload:', errorMsg);
+    if (errorMsg.includes('EROFS') || errorMsg.includes('read-only')) {
+      return NextResponse.json(
+        {
+          error:
+            'На хмарному хостингу Vercel системний диск захищений від запису (Serverless Read-Only). Будь ласка, відкрийте локальну адмінку на Mac (http://localhost:3000/admin), завантажте малюнки там та натисніть «Опублікувати на Vercel»! 🚀',
+        },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ error: `Помилка пакетного завантаження: ${errorMsg}` }, { status: 500 });
   }
 }

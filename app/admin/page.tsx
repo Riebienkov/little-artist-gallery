@@ -19,7 +19,8 @@ import {
   Link as LinkIcon,
   RefreshCw,
   FolderUp,
-  CopyX
+  CopyX,
+  Rocket
 } from 'lucide-react';
 import { Drawing, Comment } from '@/lib/db';
 import { useLanguage } from '@/components/LanguageContext';
@@ -54,6 +55,10 @@ export default function AdminPage() {
   const [isLoadingDuplicates, setIsLoadingDuplicates] = useState(false);
   const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
   const [duplicateMessage, setDuplicateMessage] = useState('');
+
+  // Publishing State (deploy local changes to Vercel via Git)
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [publishMessage, setPublishMessage] = useState('');
 
   // Data states
   const [drawings, setDrawings] = useState<Drawing[]>([]);
@@ -256,6 +261,29 @@ export default function AdminPage() {
       }
     } catch (e) {
       console.error('Error deleting duplicate:', e);
+    }
+  };
+
+  // 1-Click Publish to Vercel via Git Push
+  const handlePublishToVercel = async () => {
+    setIsPublishing(true);
+    setPublishMessage('');
+    try {
+      const activePin = getActivePin();
+      const res = await fetch('/api/admin/publish', {
+        method: 'POST',
+        headers: { 'x-admin-pin': activePin },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPublishMessage(data.message);
+      } else {
+        setPublishMessage(`Помилка: ${data.error || 'Не вдалося опублікувати на Vercel'}`);
+      }
+    } catch {
+      setPublishMessage('Помилка з’єднання при публікації на Vercel');
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -604,14 +632,39 @@ export default function AdminPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="text-xs font-bold text-purple-300 hover:text-rose-400 flex items-center gap-1.5 bg-slate-900/80 hover:bg-rose-950/40 px-3.5 py-2 rounded-xl border border-purple-500/30 transition-colors cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>{t.adminLogout}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePublishToVercel}
+              disabled={isPublishing}
+              className="text-xs font-extrabold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 px-3.5 py-2 rounded-xl shadow-[0_0_15px_rgba(236,72,153,0.35)] transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              title="Опублікувати всі збережені малюнки на Vercel"
+            >
+              <Rocket className={`w-3.5 h-3.5 ${isPublishing ? 'animate-bounce' : ''}`} />
+              <span>{isPublishing ? 'Публікую на Vercel...' : '🚀 Опублікувати на Vercel'}</span>
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="text-xs font-bold text-purple-300 hover:text-rose-400 flex items-center gap-1.5 bg-slate-900/80 hover:bg-rose-950/40 px-3.5 py-2 rounded-xl border border-purple-500/30 transition-colors cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>{t.adminLogout}</span>
+            </button>
+          </div>
         </div>
+
+        {/* Publish Message Banner */}
+        {publishMessage && (
+          <div className="p-4 rounded-2xl bg-purple-950/90 border border-purple-500/40 text-purple-200 text-xs font-bold flex items-center justify-between gap-3 shadow-md">
+            <span>{publishMessage}</span>
+            <button
+              onClick={() => setPublishMessage('')}
+              className="text-purple-400 hover:text-white font-extrabold px-1 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Auto-Sync Banner */}
         <div className="bg-[#0b1b24]/85 backdrop-blur-md border border-emerald-500/30 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
