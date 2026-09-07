@@ -13,6 +13,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Невірний PIN-код адміністратора' }, { status: 401 });
     }
 
+    if (process.env.VERCEL) {
+      return NextResponse.json(
+        {
+          error:
+            'На хмарному хостингу Vercel файлова система захищена від запису (read-only). Будь ласка, видаляйте малюнки через локальну панель на вашому Mac (http://localhost:3000/admin) та натисніть «🚀 Опублікувати на Vercel».',
+        },
+        { status: 400 }
+      );
+    }
+
     const success = deleteDrawing(id);
     if (!success) {
       return NextResponse.json({ error: 'Малюнок не знайдено' }, { status: 404 });

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 export interface Drawing {
   id: string;
@@ -139,9 +140,43 @@ export function rotateDrawing(id: string, targetRotation?: number): number {
 
 export function deleteDrawing(id: string): boolean {
   const db = readDB();
+  const target = db.drawings.find((d) => d.id === id);
+  if (!target) return false;
+
   const initialLength = db.drawings.length;
   db.drawings = db.drawings.filter((d) => d.id !== id);
-  db.comments = db.comments.filter((c) => c.drawingId !== id);
+  db.comments = (db.comments || []).filter((c) => c.drawingId !== id);
+
+  if (!db.ignoredSyncFiles) {
+    db.ignoredSyncFiles = [];
+  }
+
+  // Prevent auto-sync from re-importing this drawing by filename
+  if (target.sourceFile && !db.ignoredSyncFiles.includes(target.sourceFile)) {
+    db.ignoredSyncFiles.push(target.sourceFile);
+    const cleanName = target.sourceFile.replace(/\s+/g, ' ');
+    if (!db.ignoredSyncFiles.includes(cleanName)) {
+      db.ignoredSyncFiles.push(cleanName);
+    }
+  }
+
+  // Delete physical uploaded file and register its SHA-256 hash in ignoredSyncFiles
+  if (target.imageUrl) {
+    const uploadPath = path.join(process.cwd(), 'public', target.imageUrl.replace(/^\//, ''));
+    try {
+      if (fs.existsSync(uploadPath)) {
+        const buf = fs.readFileSync(uploadPath);
+        const hash = crypto.createHash('sha256').update(buf).digest('hex');
+        if (!db.ignoredSyncFiles.includes(hash)) {
+          db.ignoredSyncFiles.push(hash);
+        }
+        fs.unlinkSync(uploadPath);
+      }
+    } catch (e) {
+      console.error('Error deleting physical upload file:', e);
+    }
+  }
+
   writeDB(db);
   return db.drawings.length < initialLength;
 }

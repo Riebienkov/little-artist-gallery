@@ -102,7 +102,7 @@ export function syncTanjaFolder(): SyncResult {
         srcHash = crypto.createHash('sha256').update(buf).digest('hex');
       } catch {}
 
-      if (srcHash && existingHashes.has(srcHash)) {
+      if (srcHash && (existingHashes.has(srcHash) || ignoredFiles.has(srcHash))) {
         continue;
       }
       const stat = fs.statSync(srcPath);

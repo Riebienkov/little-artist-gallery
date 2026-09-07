@@ -109,9 +109,10 @@ export default function AdminPage() {
     setIsSyncing(true);
     setSyncStatusText('');
     try {
+      const activePin = getActivePin();
       const res = await fetch('/api/sync', {
         method: 'POST',
-        headers: { 'x-admin-pin': pin },
+        headers: { 'x-admin-pin': activePin },
       });
       const data = await res.json();
       if (data.success) {
@@ -420,11 +421,12 @@ export default function AdminPage() {
   // Rotate an existing drawing permanently
   const handleRotateDrawing = async (drawingId: string) => {
     try {
+      const activePin = getActivePin();
       const res = await fetch(`/api/drawings/${drawingId}/rotate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-pin': pin,
+          'x-admin-pin': activePin,
         },
       });
       const data = await res.json();
@@ -460,6 +462,7 @@ export default function AdminPage() {
     setMediaSavedSuccess(false);
 
     try {
+      const activePin = getActivePin();
       const formData = new FormData();
       if (mediaAiFile) formData.append('aiImage', mediaAiFile);
       if (mediaVideoFile) formData.append('video', mediaVideoFile);
@@ -467,7 +470,7 @@ export default function AdminPage() {
       const res = await fetch(`/api/drawings/${drawingId}/media`, {
         method: 'POST',
         headers: {
-          'x-admin-pin': pin,
+          'x-admin-pin': activePin,
         },
         body: formData,
       });
@@ -495,12 +498,13 @@ export default function AdminPage() {
 
   const handleRemoveDerivative = async (drawingId: string, action: 'remove_ai' | 'remove_video') => {
     try {
+      const activePin = getActivePin();
       const formData = new FormData();
       formData.append('action', action);
 
       const res = await fetch(`/api/drawings/${drawingId}/media`, {
         method: 'POST',
-        headers: { 'x-admin-pin': pin },
+        headers: { 'x-admin-pin': activePin },
         body: formData,
       });
       const data = await res.json();
@@ -517,11 +521,12 @@ export default function AdminPage() {
   // Approve or Delete Comment
   const handleCommentStatus = async (commentId: string, status: 'approved') => {
     try {
+      const activePin = getActivePin();
       const res = await fetch('/api/comments', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-pin': pin,
+          'x-admin-pin': activePin,
         },
         body: JSON.stringify({ id: commentId, status }),
       });
@@ -539,9 +544,10 @@ export default function AdminPage() {
   const handleDeleteComment = async (commentId: string) => {
     if (!confirm('Видалити цей коментар?')) return;
     try {
+      const activePin = getActivePin();
       const res = await fetch(`/api/comments?id=${commentId}`, {
         method: 'DELETE',
-        headers: { 'x-admin-pin': pin },
+        headers: { 'x-admin-pin': activePin },
       });
       const data = await res.json();
       if (data.success) {
@@ -556,16 +562,20 @@ export default function AdminPage() {
   const handleDeleteDrawing = async (drawingId: string) => {
     if (!confirm('Ви впевнені, що хочете видалити цей малюнок?')) return;
     try {
+      const activePin = getActivePin();
       const res = await fetch(`/api/drawings/${drawingId}`, {
         method: 'DELETE',
-        headers: { 'x-admin-pin': pin },
+        headers: { 'x-admin-pin': activePin },
       });
       const data = await res.json();
       if (data.success) {
         setDrawings((prev) => prev.filter((d) => d.id !== drawingId));
+      } else {
+        alert(data.error || 'Не вдалося видалити малюнок');
       }
     } catch (err) {
       console.error('Error deleting drawing:', err);
+      alert('Помилка з’єднання при видаленні малюнка');
     }
   };
 

@@ -77,8 +77,8 @@ for (const filename of imageFiles) {
     srcHash = crypto.createHash('sha256').update(buf).digest('hex');
   } catch {}
 
-  if (srcHash && existingHashes.has(srcHash)) {
-    console.log(`[Sync Skip Duplicate Content] Skipping ${filename} (hash already in gallery)`);
+  if (srcHash && (existingHashes.has(srcHash) || ignoredFiles.has(srcHash))) {
+    console.log(`[Sync Skip Duplicate/Ignored] Skipping ${filename} (hash already in gallery or ignored)`);
     continue;
   }
   const stat = fs.statSync(srcPath);

@@ -491,48 +491,6 @@
       "createdAt": "2026-09-07T17:10:50.977Z"
     },
     {
-      "id": "drawing-tanja-7371-1788801050976-baqb",
-      "title": "Малюнок №7371 (Таня)",
-      "date": "",
-      "category": "Малюнки",
-      "description": "Оригінальний малюнок Тетянки (IMG_7371 — средний размер.jpeg) 🎨✨",
-      "imageUrl": "/uploads/tanja-img-7371-0976.jpeg",
-      "sourceFile": "IMG_7371 — средний размер.jpeg",
-      "rotation": 0,
-      "derivedImages": [],
-      "videoUrl": "",
-      "likesCount": 0,
-      "createdAt": "2026-09-07T17:10:50.976Z"
-    },
-    {
-      "id": "drawing-tanja-7370-1788801050976-diyj",
-      "title": "Малюнок №7370 (Таня)",
-      "date": "",
-      "category": "Малюнки",
-      "description": "Оригінальний малюнок Тетянки (IMG_7370 — средний размер.jpeg) 🎨✨",
-      "imageUrl": "/uploads/tanja-img-7370-0975.jpeg",
-      "sourceFile": "IMG_7370 — средний размер.jpeg",
-      "rotation": 0,
-      "derivedImages": [],
-      "videoUrl": "",
-      "likesCount": 0,
-      "createdAt": "2026-09-07T17:10:50.976Z"
-    },
-    {
-      "id": "drawing-tanja-7369-1788801050974-z3yb",
-      "title": "Малюнок №7369 (Таня)",
-      "date": "",
-      "category": "Малюнки",
-      "description": "Оригінальний малюнок Тетянки (IMG_7369 — средний размер.jpeg) 🎨✨",
-      "imageUrl": "/uploads/tanja-img-7369-0973.jpeg",
-      "sourceFile": "IMG_7369 — средний размер.jpeg",
-      "rotation": 0,
-      "derivedImages": [],
-      "videoUrl": "",
-      "likesCount": 0,
-      "createdAt": "2026-09-07T17:10:50.974Z"
-    },
-    {
       "id": "drawing-tanja-1",
       "title": "Чарівна Зіркова Гілочка (підпис: TANJA)",
       "date": "",
@@ -2673,6 +2631,15 @@
     "Без названия 48.jpg",
     "Без названия 49.jpg",
     "Без названия 261.jpeg",
-    "Без названия 26.jpg"
+    "Без названия 26.jpg",
+    "IMG_7369 — средний размер.jpeg",
+    "IMG_7369 — средний размер.jpeg",
+    "1c1a8c34f4155073878d3f60dc6509287fd672baa289304c964df814adee0d25",
+    "IMG_7370 — средний размер.jpeg",
+    "IMG_7370 — средний размер.jpeg",
+    "2f489b6a1efecb1c2535d11d9e764e2d6fc7d1cc4a6f4c8a1b4b8c88b3a660be",
+    "IMG_7371 — средний размер.jpeg",
+    "IMG_7371 — средний размер.jpeg",
+    "a9b71fd8549fb8076ae24a2f7389e6b3f9967f0547da6356d12c1cd26f546e78"
   ]
 }
