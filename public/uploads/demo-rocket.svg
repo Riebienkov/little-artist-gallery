@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <radialGradient id="spaceGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#312E81" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </radialGradient>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#spaceGrad)" rx="24"/>
+
+  <!-- Twinkling stars in deep space -->
+  <g fill="#FEF08A">
+    <circle cx="80" cy="90" r="4"/>
+    <circle cx="200" cy="60" r="3"/>
+    <circle cx="150" cy="220" r="5"/>
+    <circle cx="340" cy="110" r="4"/>
+    <circle cx="680" cy="80" r="6"/>
+    <circle cx="720" cy="240" r="4"/>
+    <circle cx="630" cy="480" r="5"/>
+    <circle cx="120" cy="460" r="4"/>
+    <circle cx="280" cy="530" r="3"/>
+  </g>
+
+  <!-- Saturn-like pastel planet -->
+  <g transform="translate(130, 150)">
+    <ellipse cx="60" cy="60" rx="90" ry="25" fill="none" stroke="#F472B6" stroke-width="12" transform="rotate(-20 60 60)"/>
+    <circle cx="60" cy="60" r="50" fill="#38BDF8" stroke="#0284C7" stroke-width="6"/>
+    <circle cx="45" cy="45" r="10" fill="#7DD3FC"/>
+  </g>
+
+  <!-- Chocolate planet with a cherry -->
+  <g transform="translate(620, 360)">
+    <circle cx="50" cy="50" r="45" fill="#B45309" stroke="#78350F" stroke-width="5"/>
+    <circle cx="35" cy="35" r="10" fill="#D97706"/>
+    <circle cx="50" cy="6" r="12" fill="#EF4444"/>
+    <path d="M 50,6 Q 65,-10 70,-15" fill="none" stroke="#15803D" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Ice Cream Rocket ship -->
+  <g transform="translate(420, 260) rotate(-45)">
+    <!-- Exhaust fire (Rainbow sparks) -->
+    <path d="M -40,180 Q 0,260 0,320 Q 0,260 40,180 Z" fill="#F97316"/>
+    <path d="M -25,180 Q 0,230 0,270 Q 0,230 25,180 Z" fill="#FACC15"/>
+    
+    <!-- Fins -->
+    <polygon points="-50,160 -90,200 -40,210" fill="#EC4899" stroke="#BE185D" stroke-width="5"/>
+    <polygon points="50,160 90,200 40,210" fill="#EC4899" stroke="#BE185D" stroke-width="5"/>
+
+    <!-- Rocket Body (Ice Cream Cone style) -->
+    <rect x="-45" y="40" width="90" height="140" fill="#FDE047" stroke="#CA8A04" stroke-width="6" rx="10"/>
+    
+    <!-- Rocket Nose (Scoop of Strawberry Ice cream) -->
+    <path d="M -50,40 Q 0,-80 50,40 Z" fill="#FB7185" stroke="#E11D48" stroke-width="6"/>
+    <circle cx="0" cy="-60" r="14" fill="#E11D48"/>
+
+    <!-- Porothole window with happy passenger -->
+    <circle cx="0" cy="90" r="30" fill="#E0F2FE" stroke="#0284C7" stroke-width="6"/>
+    <circle cx="-10" cy="85" r="5" fill="#0F172A"/>
+    <circle cx="10" cy="85" r="5" fill="#0F172A"/>
+    <path d="M -10,100 Q 0,110 10,100" fill="none" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Friendly alien waving on a mini asteroid -->
+  <g transform="translate(180, 420)">
+    <ellipse cx="40" cy="50" rx="40" ry="25" fill="#64748B" stroke="#334155" stroke-width="4"/>
+    <!-- Alien -->
+    <circle cx="40" cy="15" r="18" fill="#4ADE80" stroke="#16A34A" stroke-width="4"/>
+    <circle cx="40" cy="12" r="5" fill="#14532D"/>
+    <!-- Antenna -->
+    <path d="M 40,0 L 40,-12" stroke="#16A34A" stroke-width="3"/>
+    <circle cx="40" cy="-14" r="5" fill="#FACC15"/>
+    <!-- Hand waving -->
+    <path d="M 55,18 Q 70,5 75,10" fill="none" stroke="#16A34A" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

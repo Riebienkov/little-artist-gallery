@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎨 Казкова Майстерня — Персональна галерея малюнків
 
-## Getting Started
+Затишний, швидкий та інтерактивний веб-додаток для щоденних малюнків дитини.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Можливості додатку
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Публічна вітрина малюнків (`/`):**
+   * Світлий, казковий дитячий дизайн, оптимізований під комп'ютери, планшети (iPad) та смартфони.
+   * Фільтрація за тематичними категоріями (*Тваринки*, *Казки*, *Космос*, *Родина*, *Природа*).
+   * Інтерактивна кнопка зірочок із салютом із конфеті (`canvas-confetti`).
+   * Перегляд малюнка у високій якості та окремий блок з історією («Що розповіла художниця»).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. **Книга теплих слів та побажань:**
+   * Відвідувачі можуть залишити коментар або швидку наліпку (🎨, 🌟, 🦄, 💖, 🚀).
+   * **Безпека:** коментарі з'являються на сайті лише після швидкого схвалення батьками в адмінці.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. **Інтерактивна міні-гра «Чарівний Пазл» (`/play`):**
+   * Будь-який малюнок із галереї можна перетворити на живий пазл.
+   * 3 рівні складності: **4 частини** (2×2 — ідеально для 5 років), **6 частин** (3×2) та **9 частин** (3×3).
+   * Зручне переміщення шматочків кліком/тапом.
+   * Підказка (напівпрозоре накладання оригіналу) та святковий феєрверк після збирання.
 
-## Learn More
+4. **Панель керування для батьків (`/admin`):**
+   * Вхід за простим 4-значним PIN-кодом (за замовчуванням `2026`, змінюється в `.env.local`).
+   * Завантаження малюнка прямо з галереї телефону або комп'ютера.
+   * Поля: назва, дата, категорія, цитата дитини.
+   * Модерація коментарів (кнопки «Схвалити» / «Видалити»).
+   * Керування списком малюнків.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🚀 Як запустити локально
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Відкрийте термінал у папці проєкту:
+   ```bash
+   cd "little-artist-gallery"
+   ```
 
-## Deploy on Vercel
+2. Запустіть сервер розробки:
+   ```bash
+   npm run dev
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. Відкрийте в браузері:
+   * Головна галерея: [http://localhost:3000](http://localhost:3000)
+   * Гра у пазли: [http://localhost:3000/play](http://localhost:3000/play)
+   * Батьківська адмінка: [http://localhost:3000/admin](http://localhost:3000/admin) (PIN: `2026`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 🌐 Як опублікувати в інтернеті для рідних і друзів
+
+Найпростіший і безкоштовний спосіб:
+1. Завантажити цей репозиторій на GitHub.
+2. Перейти на [Vercel.com](https://vercel.com) -> обрати цей репозиторій -> натиснути **Deploy**.
+3. У налаштуваннях Environment Variables на Vercel додати `ADMIN_PIN=ваш_пін`.
+4. Готово! Ви отримаєте швидке посилання, яким можна ділитися з рідними.

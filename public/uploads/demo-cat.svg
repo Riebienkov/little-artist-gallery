@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#BAE6FD" />
+      <stop offset="100%" stop-color="#FEF08A" />
+    </linearGradient>
+    <filter id="crayon" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" />
+    </filter>
+  </defs>
+
+  <!-- Background Sky -->
+  <rect width="800" height="600" fill="url(#skyGrad)" rx="24"/>
+
+  <!-- Sun -->
+  <g filter="url(#crayon)">
+    <circle cx="700" cy="110" r="65" fill="#FBBF24" stroke="#F59E0B" stroke-width="6" stroke-dasharray="16,8"/>
+    <!-- Sun Rays -->
+    <path d="M 700,30 L 700,5 M 700,190 L 700,215 M 620,110 L 595,110 M 780,110 L 805,110 M 645,55 L 625,35 M 755,165 L 775,185 M 645,165 L 625,185 M 755,55 L 775,35" stroke="#F59E0B" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="685" cy="100" r="5" fill="#451A03"/>
+    <circle cx="715" cy="100" r="5" fill="#451A03"/>
+    <path d="M 688,122 Q 700,135 712,122" stroke="#451A03" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Big Pink Cloud -->
+  <g filter="url(#crayon)">
+    <path d="M 180,480 Q 150,420 220,380 Q 280,310 370,350 Q 450,290 530,340 Q 620,330 650,400 Q 720,440 680,500 Q 640,550 560,530 Q 480,560 380,540 Q 260,560 200,510 Z" fill="#FCE7F3" stroke="#F472B6" stroke-width="8"/>
+  </g>
+
+  <!-- Cute Cat Sitting on Cloud -->
+  <g filter="url(#crayon)" transform="translate(320, 220)">
+    <!-- Tail -->
+    <path d="M 170,200 Q 240,180 230,120 Q 220,80 180,100" fill="none" stroke="#FB923C" stroke-width="22" stroke-linecap="round"/>
+    
+    <!-- Body -->
+    <ellipse cx="110" cy="180" rx="75" ry="90" fill="#FDBA74" stroke="#EA580C" stroke-width="8"/>
+    <!-- Tummy -->
+    <ellipse cx="110" cy="190" rx="45" ry="55" fill="#FFEDD5"/>
+    
+    <!-- Head -->
+    <circle cx="110" cy="80" r="65" fill="#FDBA74" stroke="#EA580C" stroke-width="8"/>
+    
+    <!-- Ears -->
+    <polygon points="60,45 80,-15 105,30" fill="#FDBA74" stroke="#EA580C" stroke-width="8" stroke-linejoin="round"/>
+    <polygon points="68,38 82,-2 100,28" fill="#F472B6"/>
+    
+    <polygon points="160,45 140,-15 115,30" fill="#FDBA74" stroke="#EA580C" stroke-width="8" stroke-linejoin="round"/>
+    <polygon points="152,38 138,-2 120,28" fill="#F472B6"/>
+
+    <!-- Eyes -->
+    <circle cx="85" cy="75" r="10" fill="#1E293B"/>
+    <circle cx="82" cy="71" r="3" fill="#FFFFFF"/>
+    <circle cx="135" cy="75" r="10" fill="#1E293B"/>
+    <circle cx="132" cy="71" r="3" fill="#FFFFFF"/>
+
+    <!-- Cheeks -->
+    <circle cx="70" cy="95" r="12" fill="#FDA4AF" opacity="0.8"/>
+    <circle cx="150" cy="95" r="12" fill="#FDA4AF" opacity="0.8"/>
+
+    <!-- Nose & Mouth -->
+    <polygon points="110,90 102,82 118,82" fill="#E11D48"/>
+    <path d="M 110,92 L 110,100 M 110,100 Q 100,110 90,102 M 110,100 Q 120,110 130,102" fill="none" stroke="#431407" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- Whiskers -->
+    <path d="M 60,85 L 15,80 M 60,95 L 10,95 M 60,105 L 18,112" stroke="#431407" stroke-width="4" stroke-linecap="round"/>
+    <path d="M 160,85 L 205,80 M 160,95 L 210,95 M 160,105 L 202,112" stroke="#431407" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- Little Paws -->
+    <ellipse cx="80" cy="245" rx="20" ry="15" fill="#FFEDD5" stroke="#EA580C" stroke-width="6"/>
+    <ellipse cx="140" cy="245" rx="20" ry="15" fill="#FFEDD5" stroke="#EA580C" stroke-width="6"/>
+  </g>
+
+  <!-- Stars Floating Around -->
+  <g fill="#FDE047" stroke="#CA8A04" stroke-width="3">
+    <path d="M 120,180 L 126,196 L 144,196 L 130,206 L 135,222 L 120,212 L 105,222 L 110,206 L 96,196 L 114,196 Z"/>
+    <path d="M 230,120 L 234,132 L 247,132 L 237,139 L 240,151 L 230,143 L 220,151 L 223,139 L 213,132 L 226,132 Z"/>
+    <path d="M 690,440 L 694,452 L 707,452 L 697,459 L 700,471 L 690,463 L 680,471 L 683,459 L 673,452 L 686,452 Z"/>
+  </g>
+  
+  <!-- Artist signature tag -->
+  <text x="50" y="555" font-family="'Comic Sans MS', cursive, sans-serif" font-size="22" fill="#6B7280" font-weight="bold">✨ Малюнок №1 • Сонячний день</text>
+</svg>

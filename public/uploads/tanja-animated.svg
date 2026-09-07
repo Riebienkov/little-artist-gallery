@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="100%" height="100%">
+  <defs>
+    <radialGradient id="animNightSky" cx="50%" cy="40%" r="80%">
+      <stop offset="0%" stop-color="#2E1065" />
+      <stop offset="50%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#020617" />
+    </radialGradient>
+    <filter id="animGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="800" height="600" fill="url(#animNightSky)" rx="24"/>
+
+  <!-- Animated Twinkling Stars -->
+  <circle cx="150" cy="120" r="3" fill="#FDE047">
+    <animate attributeName="opacity" values="0.2;1;0.2" dur="2s" repeatCount="indefinite" />
+  </circle>
+  <circle cx="680" cy="130" r="4" fill="#FDE047">
+    <animate attributeName="opacity" values="1;0.3;1" dur="2.5s" repeatCount="indefinite" />
+  </circle>
+  <circle cx="340" cy="80" r="3.5" fill="#6EE7B7">
+    <animate attributeName="opacity" values="0.4;1;0.4" dur="1.8s" repeatCount="indefinite" />
+  </circle>
+  <circle cx="720" cy="450" r="3" fill="#F472B6">
+    <animate attributeName="opacity" values="0.1;0.9;0.1" dur="3s" repeatCount="indefinite" />
+  </circle>
+
+  <!-- Animated Green Branch with Gentle Sway -->
+  <g>
+    <animateTransform attributeName="transform" type="rotate" values="0 60 340; 2 60 340; 0 60 340; -2 60 340; 0 60 340" dur="4s" repeatCount="indefinite" />
+    <path d="M 60,340 C 200,320 320,350 480,260" fill="none" stroke="#059669" stroke-width="28" stroke-linecap="round"/>
+    <path d="M 60,340 C 200,320 320,350 480,260" fill="none" stroke="#34D399" stroke-width="16" stroke-linecap="round"/>
+
+    <!-- Spikes / Leaves -->
+    <polygon points="260,325 285,250 310,330" fill="#10B981" stroke="#047857" stroke-width="3"/>
+    <polygon points="345,305 375,230 400,305" fill="#10B981" stroke="#047857" stroke-width="3"/>
+    <polygon points="380,310 405,375 430,290" fill="#10B981" stroke="#047857" stroke-width="3"/>
+  </g>
+
+  <!-- Animated Floating Star at the tip -->
+  <g transform="translate(530, 235)" filter="url(#animGlow)">
+    <animateTransform attributeName="transform" type="translate" values="530 235; 530 220; 530 235" dur="3s" repeatCount="indefinite" />
+    
+    <!-- Rotating aura -->
+    <circle cx="0" cy="0" r="70" fill="#FBBF24" opacity="0.3">
+      <animate attributeName="r" values="60;80;60" dur="2s" repeatCount="indefinite" />
+    </circle>
+
+    <!-- Star spinning gently -->
+    <g>
+      <animateTransform attributeName="transform" type="rotate" values="0; 10; -10; 0" dur="5s" repeatCount="indefinite" />
+      <path d="M 0,-75 L 22,-22 L 78,-22 L 32,12 L 49,65 L 0,32 L -49,65 L -32,12 L -78,-22 L -22,-22 Z" fill="#FDE047" stroke="#F59E0B" stroke-width="6"/>
+      <circle cx="0" cy="0" r="20" fill="#FEF08A"/>
+      
+      <!-- Blinking eyes -->
+      <circle cx="-7" cy="-3" r="3.5" fill="#451A03"/>
+      <circle cx="7" cy="-3" r="3.5" fill="#451A03"/>
+      <path d="M -6,6 Q 0,12 6,6" fill="none" stroke="#451A03" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="-12" cy="4" r="4" fill="#FDA4AF" opacity="0.8"/>
+      <circle cx="12" cy="4" r="4" fill="#FDA4AF" opacity="0.8"/>
+    </g>
+  </g>
+
+  <!-- Animated Birds flapping in corner -->
+  <g stroke="#34D399" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 180,470 L 195,450 L 210,470">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 -10; 0 0" dur="1.2s" repeatCount="indefinite" />
+    </path>
+    <path d="M 230,490 L 245,470 L 260,490">
+      <animateTransform attributeName="transform" type="translate" values="0 0; 0 -8; 0 0" dur="1.5s" repeatCount="indefinite" />
+    </path>
+  </g>
+
+  <rect x="50" y="520" width="240" height="42" rx="14" fill="#1E293B" stroke="#A855F7" stroke-width="2"/>
+  <text x="70" y="547" font-family="'Comic Sans MS', cursive, sans-serif" font-size="15" fill="#E9D5FF" font-weight="bold">🎬 Animated Magic • TANJA</text>
+</svg>
