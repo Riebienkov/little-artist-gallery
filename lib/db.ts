@@ -36,6 +36,7 @@ export interface DBData {
   drawings: Drawing[];
   comments: Comment[];
   settings: Settings;
+  ignoredSyncFiles?: string[];
 }
 
 const dbPath = path.join(process.cwd(), 'data', 'db.json');
@@ -48,6 +49,7 @@ const defaultData: DBData = {
     artistName: "Таня",
     adminPin: process.env.ADMIN_PIN || "2026",
   },
+  ignoredSyncFiles: [],
 };
 
 export function readDB(): DBData {
@@ -57,7 +59,11 @@ export function readDB(): DBData {
       return defaultData;
     }
     const raw = fs.readFileSync(dbPath, 'utf8');
-    return JSON.parse(raw) as DBData;
+    const parsed = JSON.parse(raw) as DBData;
+    if (!parsed.ignoredSyncFiles) {
+      parsed.ignoredSyncFiles = [];
+    }
+    return parsed;
   } catch (err) {
     console.error('Error reading db.json:', err);
     return defaultData;

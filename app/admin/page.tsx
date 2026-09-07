@@ -173,13 +173,18 @@ export default function AdminPage() {
     }
   };
 
+  const getActivePin = () => {
+    return pin || (typeof window !== 'undefined' ? sessionStorage.getItem('admin_pin') || '' : '') || '2026';
+  };
+
   // Load duplicates list
-  const loadDuplicates = async (currentPin = pin) => {
+  const loadDuplicates = async (customPin?: string) => {
     setIsLoadingDuplicates(true);
     setDuplicateMessage('');
     try {
+      const activePin = customPin || getActivePin();
       const res = await fetch('/api/admin/duplicates', {
-        headers: { 'x-admin-pin': currentPin },
+        headers: { 'x-admin-pin': activePin },
       });
       const data = await res.json();
       if (data.success) {
@@ -195,22 +200,30 @@ export default function AdminPage() {
 
   // Auto clean duplicates
   const handleAutoCleanDuplicates = async () => {
-    if (!confirm('Видалити всі зайві копії автоматично? Буде збережено по одній оригінальній версії кожного малюнка.')) return;
+    if (typeof window !== 'undefined' && window.confirm) {
+      if (!window.confirm('Видалити всі зайві копії автоматично? Буде збережено по одній оригінальній версії кожного малюнка.')) {
+        return;
+      }
+    }
     setIsCleaningDuplicates(true);
+    setDuplicateMessage('⏳ Очищую дублікати та оновлюю базу...');
     try {
+      const activePin = getActivePin();
       const res = await fetch('/api/admin/duplicates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-pin': pin,
+          'x-admin-pin': activePin,
         },
         body: JSON.stringify({ action: 'auto_clean' }),
       });
       const data = await res.json();
       if (data.success) {
         setDuplicateMessage(`✓ Успішно видалено ${data.removedCount} дублікатів! У галереї залишилося ${data.remainingDrawingsCount} унікальних малюнків.`);
-        loadAdminData();
-        loadDuplicates();
+        setDuplicateGroups([]);
+        setRedundantCount(0);
+        await loadAdminData(activePin);
+        await loadDuplicates(activePin);
       } else {
         setDuplicateMessage(`Помилка: ${data.error || 'Не вдалося очистити дублікати'}`);
       }
@@ -223,20 +236,23 @@ export default function AdminPage() {
 
   // Delete specific duplicate
   const handleDeleteSpecificDuplicate = async (drawingId: string) => {
-    if (!confirm('Видалити цей конкретний дублікат?')) return;
+    if (typeof window !== 'undefined' && window.confirm) {
+      if (!window.confirm('Видалити цей конкретний дублікат?')) return;
+    }
     try {
+      const activePin = getActivePin();
       const res = await fetch('/api/admin/duplicates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-admin-pin': pin,
+          'x-admin-pin': activePin,
         },
         body: JSON.stringify({ action: 'delete_ids', ids: [drawingId] }),
       });
       const data = await res.json();
       if (data.success) {
-        loadAdminData();
-        loadDuplicates();
+        await loadAdminData(activePin);
+        await loadDuplicates(activePin);
       }
     } catch (e) {
       console.error('Error deleting duplicate:', e);
@@ -269,9 +285,10 @@ export default function AdminPage() {
       formData.append('category', batchCategory);
       if (batchDate) formData.append('date', batchDate);
 
+      const activePin = getActivePin();
       const res = await fetch('/api/admin/batch-upload', {
         method: 'POST',
-        headers: { 'x-admin-pin': pin },
+        headers: { 'x-admin-pin': activePin },
         body: formData,
       });
 

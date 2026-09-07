@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { readDB, writeDB, Drawing } from './db';
 
 export const DEFAULT_SYNC_DIR = '/Users/imac/Downloads/UNARCHIVED/Tanja';
@@ -43,6 +44,21 @@ export function syncTanjaFolder(): SyncResult {
   const existingSourceFiles = new Set(
     db.drawings.map((d) => d.sourceFile).filter(Boolean)
   );
+  const ignoredFiles = new Set(db.ignoredSyncFiles || []);
+
+  // Compute existing image content hashes so we NEVER import duplicates
+  const existingHashes = new Set<string>();
+  for (const d of db.drawings) {
+    if (!d.imageUrl) continue;
+    const p = path.join(process.cwd(), 'public', d.imageUrl.replace(/^\//, ''));
+    if (fs.existsSync(p)) {
+      try {
+        const buf = fs.readFileSync(p);
+        const h = crypto.createHash('sha256').update(buf).digest('hex');
+        existingHashes.add(h);
+      } catch {}
+    }
+  }
 
   let rawFiles: string[] = [];
   try {
@@ -74,12 +90,21 @@ export function syncTanjaFolder(): SyncResult {
   let addedCount = 0;
 
   for (const filename of imageFiles) {
-    if (existingSourceFiles.has(filename)) {
+    if (existingSourceFiles.has(filename) || ignoredFiles.has(filename)) {
       continue;
     }
 
     try {
       const srcPath = path.join(syncDir, filename);
+      let srcHash = '';
+      try {
+        const buf = fs.readFileSync(srcPath);
+        srcHash = crypto.createHash('sha256').update(buf).digest('hex');
+      } catch {}
+
+      if (srcHash && existingHashes.has(srcHash)) {
+        continue;
+      }
       const stat = fs.statSync(srcPath);
 
       // Create a clean destination filename
@@ -118,6 +143,7 @@ export function syncTanjaFolder(): SyncResult {
 
       db.drawings.push(newDrawing);
       existingSourceFiles.add(filename);
+      if (srcHash) existingHashes.add(srcHash);
       addedCount++;
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);

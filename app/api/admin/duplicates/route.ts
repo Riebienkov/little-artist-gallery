@@ -118,51 +118,65 @@ export async function POST(req: NextRequest) {
     if (action === 'delete_ids') {
       idsToDelete = (body.ids as string[]) || [];
     } else if (action === 'auto_clean') {
-      // Find all duplicate groups and keep the 1st one, mark subsequent for deletion
-      const hashToDrawings: Record<string, Drawing[]> = {};
-      const stemToDrawings: Record<string, Drawing[]> = {};
-      const handled = new Set<string>();
+      let changed = true;
+      while (changed) {
+        changed = false;
+        const hashToDrawings: Record<string, Drawing[]> = {};
+        const stemToDrawings: Record<string, Drawing[]> = {};
+        const handled = new Set<string>();
 
-      for (const d of db.drawings) {
-        if (!d.imageUrl) continue;
-        const fullPath = path.join(process.cwd(), 'public', d.imageUrl.replace(/^\//, ''));
-        if (fs.existsSync(fullPath)) {
-          try {
-            const buf = fs.readFileSync(fullPath);
-            const hash = crypto.createHash('sha256').update(buf).digest('hex');
-            if (!hashToDrawings[hash]) hashToDrawings[hash] = [];
-            hashToDrawings[hash].push(d);
-          } catch {}
-        }
-        if (d.sourceFile) {
-          const stem = path.parse(d.sourceFile).name.toLowerCase().trim();
-          if (stem) {
-            if (!stemToDrawings[stem]) stemToDrawings[stem] = [];
-            stemToDrawings[stem].push(d);
+        const activeDrawings = db.drawings.filter((d) => !idsToDelete.includes(d.id));
+
+        for (const d of activeDrawings) {
+          if (!d.imageUrl) continue;
+          const fullPath = path.join(process.cwd(), 'public', d.imageUrl.replace(/^\//, ''));
+          if (fs.existsSync(fullPath)) {
+            try {
+              const buf = fs.readFileSync(fullPath);
+              const hash = crypto.createHash('sha256').update(buf).digest('hex');
+              if (!hashToDrawings[hash]) hashToDrawings[hash] = [];
+              hashToDrawings[hash].push(d);
+            } catch {}
+          }
+          if (d.sourceFile) {
+            const stem = path.parse(d.sourceFile).name.toLowerCase().trim();
+            if (stem) {
+              if (!stemToDrawings[stem]) stemToDrawings[stem] = [];
+              stemToDrawings[stem].push(d);
+            }
           }
         }
-      }
 
-      // Hash duplicates: keep item 0, delete others
-      for (const list of Object.values(hashToDrawings)) {
-        if (list.length > 1) {
-          for (let i = 1; i < list.length; i++) {
-            idsToDelete.push(list[i].id);
-            handled.add(list[i].id);
+        let newDeletions = 0;
+        // Hash duplicates: keep item 0, delete others
+        for (const list of Object.values(hashToDrawings)) {
+          if (list.length > 1) {
+            for (let i = 1; i < list.length; i++) {
+              if (!idsToDelete.includes(list[i].id)) {
+                idsToDelete.push(list[i].id);
+                handled.add(list[i].id);
+                newDeletions++;
+              }
+            }
+            handled.add(list[0].id);
           }
-          handled.add(list[0].id);
         }
-      }
 
-      // Stem duplicates: keep item 0, delete others
-      for (const list of Object.values(stemToDrawings)) {
-        const remaining = list.filter((x) => !handled.has(x.id));
-        if (remaining.length > 1) {
-          for (let i = 1; i < remaining.length; i++) {
-            idsToDelete.push(remaining[i].id);
-            handled.add(remaining[i].id);
+        // Stem duplicates: keep item 0, delete others
+        for (const list of Object.values(stemToDrawings)) {
+          const remaining = list.filter((x) => !handled.has(x.id) && !idsToDelete.includes(x.id));
+          if (remaining.length > 1) {
+            for (let i = 1; i < remaining.length; i++) {
+              idsToDelete.push(remaining[i].id);
+              handled.add(remaining[i].id);
+              newDeletions++;
+            }
+            handled.add(remaining[0].id);
           }
-          handled.add(remaining[0].id);
+        }
+
+        if (newDeletions > 0) {
+          changed = true;
         }
       }
     } else {
@@ -183,6 +197,14 @@ export async function POST(req: NextRequest) {
     const removedDrawings = db.drawings.filter((d) => deleteSet.has(d.id));
     db.drawings = db.drawings.filter((d) => !deleteSet.has(d.id));
     db.comments = db.comments.filter((c) => !deleteSet.has(c.drawingId));
+
+    // Record removed sourceFiles in ignored list so sync never re-imports them
+    if (!db.ignoredSyncFiles) db.ignoredSyncFiles = [];
+    for (const rd of removedDrawings) {
+      if (rd.sourceFile && !db.ignoredSyncFiles.includes(rd.sourceFile)) {
+        db.ignoredSyncFiles.push(rd.sourceFile);
+      }
+    }
 
     // Save DB
     writeDB(db);

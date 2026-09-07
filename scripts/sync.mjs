@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,7 +22,7 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-let db = { drawings: [], comments: [], settings: {} };
+let db = { drawings: [], comments: [], settings: {}, ignoredSyncFiles: [] };
 if (fs.existsSync(DB_PATH)) {
   try {
     db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
@@ -33,6 +34,21 @@ if (fs.existsSync(DB_PATH)) {
 const existingSourceFiles = new Set(
   (db.drawings || []).map((d) => d.sourceFile).filter(Boolean)
 );
+const ignoredFiles = new Set(db.ignoredSyncFiles || []);
+
+// Compute existing image content hashes so we never import duplicate scans
+const existingHashes = new Set();
+for (const d of db.drawings || []) {
+  if (!d.imageUrl) continue;
+  const p = path.join(rootDir, 'public', d.imageUrl.replace(/^\//, ''));
+  if (fs.existsSync(p)) {
+    try {
+      const buf = fs.readFileSync(p);
+      const h = crypto.createHash('sha256').update(buf).digest('hex');
+      existingHashes.add(h);
+    } catch {}
+  }
+}
 
 const allFiles = fs.readdirSync(SYNC_DIR);
 const imageFiles = allFiles.filter((f) => {
@@ -50,11 +66,21 @@ console.log(`[Sync] Found ${imageFiles.length} image files in folder.`);
 let addedCount = 0;
 
 for (const filename of imageFiles) {
-  if (existingSourceFiles.has(filename)) {
+  if (existingSourceFiles.has(filename) || ignoredFiles.has(filename)) {
     continue;
   }
 
   const srcPath = path.join(SYNC_DIR, filename);
+  let srcHash = '';
+  try {
+    const buf = fs.readFileSync(srcPath);
+    srcHash = crypto.createHash('sha256').update(buf).digest('hex');
+  } catch {}
+
+  if (srcHash && existingHashes.has(srcHash)) {
+    console.log(`[Sync Skip Duplicate Content] Skipping ${filename} (hash already in gallery)`);
+    continue;
+  }
   const stat = fs.statSync(srcPath);
   const ext = path.extname(filename).toLowerCase();
   const matchNumber = filename.match(/\d+/);
@@ -81,6 +107,7 @@ for (const filename of imageFiles) {
 
   db.drawings.push(newDrawing);
   existingSourceFiles.add(filename);
+  if (srcHash) existingHashes.add(srcHash);
   addedCount++;
 }
 
