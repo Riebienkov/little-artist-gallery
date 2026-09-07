@@ -12,7 +12,10 @@ import {
   CheckCircle2, 
   RotateCw,
   Video,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Pencil,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { Drawing, Comment } from '@/lib/db';
 import StarButton from './StarButton';
@@ -22,9 +25,10 @@ interface DrawingModalProps {
   drawing: Drawing | null;
   onClose: () => void;
   onStarUpdate?: (drawingId: string, newLikes: number, newTotalStars?: number) => void;
+  onDrawingUpdate?: (drawing: Drawing) => void;
 }
 
-export default function DrawingModal({ drawing, onClose, onStarUpdate }: DrawingModalProps) {
+export default function DrawingModal({ drawing, onClose, onStarUpdate, onDrawingUpdate }: DrawingModalProps) {
   const { t, lang } = useLanguage();
 
   const [activeMediaTab, setActiveMediaTab] = useState<'original' | 'ai' | 'video'>('original');
@@ -39,12 +43,36 @@ export default function DrawingModal({ drawing, onClose, onStarUpdate }: Drawing
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
+  // Admin In-Modal Edit State
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('Тваринки');
+  const [editDate, setEditDate] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editError, setEditError] = useState('');
+
   useEffect(() => {
     if (!drawing) return;
 
     setCurrentRotation(drawing.rotation || 0);
     setActiveMediaTab('original');
     setSubmitSuccess(false);
+    setIsEditing(false);
+    setEditTitle(drawing.title || '');
+    setEditDescription(drawing.description || '');
+    setEditCategory(drawing.category || 'Малюнки');
+    setEditDate(drawing.date ? drawing.date.substring(0, 10) : '');
+    setEditSuccess(false);
+    setEditError('');
+
+    if (typeof window !== 'undefined') {
+      const pin = sessionStorage.getItem('admin_pin');
+      setIsAdmin(Boolean(pin));
+    }
+
     setLoadingComments(true);
     fetch(`/api/comments?drawingId=${drawing.id}`)
       .then((res) => res.json())
@@ -54,6 +82,54 @@ export default function DrawingModal({ drawing, onClose, onStarUpdate }: Drawing
       .catch((err) => console.error('Error loading comments:', err))
       .finally(() => setLoadingComments(false));
   }, [drawing]);
+
+  const handleSaveDrawingInfo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!drawing) return;
+    if (!editTitle.trim()) {
+      setEditError('Будь ласка, вкажіть назву');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditError('');
+    setEditSuccess(false);
+
+    try {
+      const pin = typeof window !== 'undefined' ? sessionStorage.getItem('admin_pin') || '' : '';
+      const res = await fetch(`/api/drawings/${drawing.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': pin,
+        },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          category: editCategory,
+          date: editDate ? editDate : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.drawing) {
+        setEditSuccess(true);
+        if (onDrawingUpdate) {
+          onDrawingUpdate(data.drawing);
+        }
+        setTimeout(() => {
+          setIsEditing(false);
+          setEditSuccess(false);
+        }, 700);
+      } else {
+        setEditError(data.error || 'Не вдалося зберегти');
+      }
+    } catch {
+      setEditError('Помилка мережі при збереженні');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   if (!drawing) return null;
 
@@ -248,57 +324,224 @@ export default function DrawingModal({ drawing, onClose, onStarUpdate }: Drawing
             )}
           </div>
 
-          {/* Details & Child's Story */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-purple-500/20 pb-5">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <span className="bg-purple-950/60 border border-purple-500/30 text-purple-200 text-xs font-extrabold px-3 py-1 rounded-full">
-                  {drawing.category}
-                </span>
-                {formattedDate && (
-                  <span className="text-xs text-purple-300/60 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-purple-400" />
-                    {formattedDate}
-                  </span>
-                )}
+          {/* Details & Child's Story OR Inline Editor */}
+          {isEditing ? (
+            <form
+              onSubmit={handleSaveDrawingInfo}
+              className="bg-purple-950/40 border border-purple-500/40 rounded-3xl p-5 sm:p-6 space-y-4 animate-in fade-in"
+            >
+              <div className="flex items-center justify-between border-b border-purple-500/20 pb-2.5">
+                <div className="flex items-center gap-2 text-pink-300 font-extrabold text-xs uppercase tracking-wider">
+                  <Pencil className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Редагування малюнка (Режим батьків)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="text-purple-300/70 hover:text-white text-xs font-bold px-2 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  ✕ Скасувати
+                </button>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-black text-white">
-                {drawing.title}
-              </h2>
-            </div>
 
-            {/* Actions: Star button + Puzzle link */}
-            <div className="flex items-center gap-3">
-              <StarButton
-                drawingId={drawing.id}
-                initialLikes={drawing.likesCount || 0}
-                size="lg"
-                onLikeAdded={(newLikes, newTotal) => {
-                  if (onStarUpdate) onStarUpdate(drawing.id, newLikes, newTotal);
-                }}
-              />
-              <Link
-                href={`/play?drawingId=${drawing.id}`}
-                className="px-4 py-2.5 rounded-full font-bold text-sm bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-400/40 flex items-center gap-1.5 shadow-[0_0_15px_rgba(168,85,247,0.2)] transition-transform active:scale-95"
-              >
-                <Puzzle className="w-4 h-4 text-pink-400" />
-                <span>{t.btnAssemblePuzzle}</span>
-              </Link>
-            </div>
-          </div>
+              {editSuccess && (
+                <div className="p-3 rounded-2xl bg-emerald-950/70 border border-emerald-500/40 text-emerald-200 text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>✓ Зміни успішно збережено!</span>
+                </div>
+              )}
 
-          {/* Daughter's Story */}
-          {drawing.description && (
-            <div className="bg-gradient-to-r from-purple-950/50 via-pink-950/40 to-indigo-950/50 rounded-2xl p-4 sm:p-5 border-2 border-purple-500/30 relative">
-              <div className="flex items-center gap-1.5 text-pink-400 font-extrabold text-sm mb-1">
-                <span className="text-base">🦄</span>
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>{t.childStoryLabel}</span>
+              {editError && (
+                <div className="p-3 rounded-2xl bg-rose-950/70 border border-rose-500/40 text-rose-200 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-purple-200 mb-1">
+                  Назва малюнка *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-900/90 border border-purple-500/40 rounded-xl text-sm font-bold text-white focus:outline-none focus:border-pink-400"
+                />
               </div>
-              <p className="text-purple-100 text-base sm:text-lg italic font-medium leading-relaxed">
-                «{drawing.description}»
-              </p>
-            </div>
+
+              <div>
+                <label className="block text-xs font-bold text-purple-200 mb-1">
+                  Що розповіла Таня про цей малюнок? (Дитяча історія / опис)
+                </label>
+                <textarea
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="«Ця зірочка світить уночі маленьким котикам...»"
+                  className="w-full px-3.5 py-2.5 bg-slate-900/90 border border-purple-500/40 rounded-xl text-sm text-purple-100 italic focus:outline-none focus:border-pink-400 leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-purple-200 mb-1">
+                    Категорія
+                  </label>
+                  <select
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900/90 border border-purple-500/40 rounded-xl text-xs font-bold text-purple-200 focus:outline-none focus:border-pink-400 cursor-pointer"
+                  >
+                    <option value="Тваринки">🐱 Тваринки</option>
+                    <option value="Казки">🏰 Казки</option>
+                    <option value="Космос">🚀 Космос</option>
+                    <option value="Родина">👨‍👩‍👧 Родина</option>
+                    <option value="Природа">🌸 Природа</option>
+                    <option value="Малюнки">🎨 Малюнки</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-purple-200 mb-1">
+                    Дата створення (необов'язково)
+                  </label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-900/90 border border-purple-500/40 rounded-xl text-xs font-bold text-purple-200 focus:outline-none focus:border-pink-400"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-purple-500/20">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-purple-300 hover:text-white bg-slate-900/70 border border-purple-500/30 transition-colors cursor-pointer"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="px-5 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 shadow-md flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSavingEdit ? 'Зберігаю...' : 'Зберегти зміни 💾'}</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              {/* Header: Category, Date, Title and Edit button */}
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-purple-500/20 pb-5">
+                <div>
+                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                    <span className="bg-purple-950/60 border border-purple-500/30 text-purple-200 text-xs font-extrabold px-3 py-1 rounded-full">
+                      {drawing.category}
+                    </span>
+                    {formattedDate && (
+                      <span className="text-xs text-purple-300/60 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                        {formattedDate}
+                      </span>
+                    )}
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditTitle(drawing.title || '');
+                          setEditDescription(drawing.description || '');
+                          setEditCategory(drawing.category || 'Малюнки');
+                          setEditDate(drawing.date ? drawing.date.substring(0, 10) : '');
+                          setIsEditing(true);
+                        }}
+                        className="text-[11px] font-bold text-pink-300 hover:text-pink-200 bg-pink-950/40 hover:bg-pink-900/60 border border-pink-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 transition-colors cursor-pointer"
+                        title="Змінити назву та опис"
+                      >
+                        <Pencil className="w-3 h-3 text-pink-400" />
+                        <span>Змінити</span>
+                      </button>
+                    )}
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-white">
+                    {drawing.title}
+                  </h2>
+                </div>
+
+                {/* Actions: Star button + Puzzle link */}
+                <div className="flex items-center gap-3 shrink-0">
+                  <StarButton
+                    drawingId={drawing.id}
+                    initialLikes={drawing.likesCount || 0}
+                    size="lg"
+                    onLikeAdded={(newLikes, newTotal) => {
+                      if (onStarUpdate) onStarUpdate(drawing.id, newLikes, newTotal);
+                    }}
+                  />
+                  <Link
+                    href={`/play?drawingId=${drawing.id}`}
+                    className="px-4 py-2.5 rounded-full font-bold text-sm bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-400/40 flex items-center gap-1.5 shadow-[0_0_15px_rgba(168,85,247,0.2)] transition-transform active:scale-95"
+                  >
+                    <Puzzle className="w-4 h-4 text-pink-400" />
+                    <span>{t.btnAssemblePuzzle}</span>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Daughter's Story */}
+              {drawing.description ? (
+                <div className="bg-gradient-to-r from-purple-950/50 via-pink-950/40 to-indigo-950/50 rounded-2xl p-4 sm:p-5 border-2 border-purple-500/30 relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 text-pink-400 font-extrabold text-sm">
+                      <span className="text-base">🦄</span>
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>{t.childStoryLabel}</span>
+                    </div>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditTitle(drawing.title || '');
+                          setEditDescription(drawing.description || '');
+                          setEditCategory(drawing.category || 'Малюнки');
+                          setEditDate(drawing.date ? drawing.date.substring(0, 10) : '');
+                          setIsEditing(true);
+                        }}
+                        className="text-[11px] text-pink-300 hover:text-white flex items-center gap-1 font-bold cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Редагувати історію</span>
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-purple-100 text-base sm:text-lg italic font-medium leading-relaxed">
+                    «{drawing.description}»
+                  </p>
+                </div>
+              ) : (
+                isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditTitle(drawing.title || '');
+                      setEditDescription('');
+                      setEditCategory(drawing.category || 'Малюнки');
+                      setEditDate(drawing.date ? drawing.date.substring(0, 10) : '');
+                      setIsEditing(true);
+                    }}
+                    className="w-full text-left p-3.5 rounded-2xl border-2 border-dashed border-purple-500/30 hover:border-pink-500/50 bg-purple-950/20 hover:bg-purple-950/40 transition-colors text-purple-300/80 hover:text-pink-300 flex items-center gap-2 text-xs font-bold cursor-pointer"
+                  >
+                    <span className="text-sm">🦄</span>
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>+ Додати розповідь Тані про цей малюнок</span>
+                  </button>
+                )
+              )}
+            </>
           )}
 
           {/* Comments Section */}

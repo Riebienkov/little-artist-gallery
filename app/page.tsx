@@ -220,6 +220,10 @@ export default function HomePage() {
         drawing={activeDrawing}
         onClose={() => setActiveDrawing(null)}
         onStarUpdate={handleStarUpdate}
+        onDrawingUpdate={(updated) => {
+          setDrawings((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+          setActiveDrawing(updated);
+        }}
       />
     </div>
   );

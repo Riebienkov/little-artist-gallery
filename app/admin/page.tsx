@@ -20,7 +20,9 @@ import {
   RefreshCw,
   FolderUp,
   CopyX,
-  Rocket
+  Rocket,
+  Pencil,
+  Search
 } from 'lucide-react';
 import { Drawing, Comment } from '@/lib/db';
 import { useLanguage } from '@/components/LanguageContext';
@@ -86,6 +88,18 @@ export default function AdminPage() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [mediaSavedSuccess, setMediaSavedSuccess] = useState(false);
   const [mediaUploadError, setMediaUploadError] = useState('');
+
+  // Edit Drawing State (Title, Description, Category, Date)
+  const [editingDrawing, setEditingDrawing] = useState<Drawing | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCategory, setEditCategory] = useState('Тваринки');
+  const [editCustomCategory, setEditCustomCategory] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [manageSearch, setManageSearch] = useState('');
 
   // Sync state
   const [isSyncing, setIsSyncing] = useState(false);
@@ -552,6 +566,77 @@ export default function AdminPage() {
       }
     } catch (err) {
       console.error('Error deleting drawing:', err);
+    }
+  };
+
+  // Open edit modal for drawing
+  const handleOpenEdit = (d: Drawing) => {
+    setEditingDrawing(d);
+    setEditTitle(d.title || '');
+    setEditDescription(d.description || '');
+    const standardCategories = ['Тваринки', 'Казки', 'Космос', 'Родина', 'Природа', 'Малюнки'];
+    if (standardCategories.includes(d.category)) {
+      setEditCategory(d.category);
+      setEditCustomCategory('');
+    } else {
+      setEditCategory('custom');
+      setEditCustomCategory(d.category || '');
+    }
+    setEditDate(d.date ? d.date.substring(0, 10) : '');
+    setEditSuccess(false);
+    setEditError('');
+  };
+
+  // Save changes to drawing title, description, category, and date
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDrawing) return;
+    if (!editTitle.trim()) {
+      setEditError('Будь ласка, вкажіть назву малюнка');
+      return;
+    }
+
+    setIsSavingEdit(true);
+    setEditError('');
+    setEditSuccess(false);
+
+    try {
+      const finalCategory = editCategory === 'custom'
+        ? (editCustomCategory.trim() || 'Малюнки')
+        : editCategory;
+      const activePin = getActivePin();
+
+      const res = await fetch(`/api/drawings/${editingDrawing.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': activePin,
+        },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDescription.trim(),
+          category: finalCategory,
+          date: editDate ? editDate : null,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.drawing) {
+        setEditSuccess(true);
+        setDrawings((prev) =>
+          prev.map((item) => (item.id === data.drawing.id ? data.drawing : item))
+        );
+        setTimeout(() => {
+          setEditingDrawing(null);
+        }, 800);
+      } else {
+        setEditError(data.error || 'Не вдалося зберегти зміни');
+      }
+    } catch (err) {
+      console.error('Failed to save drawing changes:', err);
+      setEditError('Помилка мережі при збереженні змін');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -1463,328 +1548,575 @@ export default function AdminPage() {
         )}
 
         {/* TAB 3: MANAGE ALL DRAWINGS + ROTATION & DERIVATIVES */}
-        {activeTab === 'manage' && (
-          <div className="bg-white rounded-3xl p-5 sm:p-8 border-2 border-slate-100 shadow-md space-y-6">
-            <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-purple-600" />
-              <span>{t.allArtworksTitle}</span>
-            </h2>
+        {activeTab === 'manage' && (() => {
+          const filteredManageDrawings = drawings.filter((d) => {
+            if (!manageSearch.trim()) return true;
+            const q = manageSearch.toLowerCase().trim();
+            return (
+              d.title.toLowerCase().includes(q) ||
+              (d.description && d.description.toLowerCase().includes(q)) ||
+              d.category.toLowerCase().includes(q) ||
+              (d.imageUrl && d.imageUrl.toLowerCase().includes(q))
+            );
+          });
 
-            {/* Derivative Media File Uploader */}
-            {editingDrawingId && (() => {
-              const currentDrawing = drawings.find((d) => d.id === editingDrawingId);
-              if (!currentDrawing) return null;
+          return (
+            <div className="bg-white rounded-3xl p-5 sm:p-8 border-2 border-slate-100 shadow-md space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h2 className="text-xl font-extrabold text-slate-800 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-purple-600" />
+                    <span>{t.allArtworksTitle}</span>
+                    <span className="text-xs font-black bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full">
+                      {manageSearch.trim() ? `${filteredManageDrawings.length} з ${drawings.length}` : drawings.length}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Змінюйте назви, дитячі розповіді, категорії або обертайте малюнки
+                  </p>
+                </div>
 
-              return (
-                <div className="p-5 sm:p-6 bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50 border-3 border-purple-200 rounded-3xl space-y-5 animate-in fade-in duration-200 shadow-md">
-                  <div className="flex items-center justify-between border-b border-purple-100 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
-                        <Sparkles className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-extrabold text-purple-950">
-                          Додаткові матеріали до малюнка: «{currentDrawing.title}»
-                        </h3>
-                        <p className="text-xs text-purple-700">
-                          Завантажте файл AI-переосмисленого малюнка або відео-анімації з комп'ютера
-                        </p>
-                      </div>
-                    </div>
+                {/* Quick Search Bar */}
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={manageSearch}
+                    onChange={(e) => setManageSearch(e.target.value)}
+                    placeholder="Пошук за назвою чи описом..."
+                    className="w-full pl-9 pr-8 py-2 bg-slate-100 hover:bg-slate-200/60 focus:bg-white border border-transparent focus:border-purple-400 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none transition-all"
+                  />
+                  {manageSearch && (
                     <button
-                      onClick={() => setEditingDrawingId(null)}
-                      className="text-slate-400 hover:text-slate-700 font-extrabold text-sm px-2 py-1 rounded-lg hover:bg-white/80 transition-colors"
+                      type="button"
+                      onClick={() => setManageSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 font-extrabold text-xs p-1"
+                      title="Очистити пошук"
                     >
-                      ✕ Закрити
+                      ✕
                     </button>
-                  </div>
-
-                  {mediaSavedSuccess && (
-                    <div className="p-3.5 rounded-2xl bg-emerald-100/90 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span>✓ Матеріали успішно завантажено та збережено для цього малюнка!</span>
-                    </div>
                   )}
+                </div>
+              </div>
 
-                  {mediaUploadError && (
-                    <div className="p-3.5 rounded-2xl bg-rose-100/90 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
-                      <span>{mediaUploadError}</span>
-                    </div>
-                  )}
+              {/* Derivative Media File Uploader */}
+              {editingDrawingId && (() => {
+                const currentDrawing = drawings.find((d) => d.id === editingDrawingId);
+                if (!currentDrawing) return null;
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    {/* SECTION 1: AI IMAGE FILE UPLOAD */}
-                    <div className="bg-white/90 rounded-2xl p-4 border border-purple-200/80 space-y-3 shadow-xs">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <ImageIcon className="w-4 h-4 text-pink-500" />
-                          <span>1. Похідний AI-малюнок (Зображення)</span>
-                        </label>
-                        {currentDrawing.derivedImages && currentDrawing.derivedImages.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveDerivative(currentDrawing.id, 'remove_ai')}
-                            className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
-                          >
-                            Видалити поточний ✕
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Current AI image preview */}
-                      {currentDrawing.derivedImages && currentDrawing.derivedImages[0] && (
-                        <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
-                          <img
-                            src={currentDrawing.derivedImages[0]}
-                            alt="Current AI"
-                            className="w-full h-full object-contain p-1"
-                          />
-                          <span className="absolute bottom-2 left-2 bg-pink-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                            Прикріплений AI-арт
-                          </span>
+                return (
+                  <div className="p-5 sm:p-6 bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50 border-3 border-purple-200 rounded-3xl space-y-5 animate-in fade-in duration-200 shadow-md">
+                    <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs">
+                          <Sparkles className="w-5 h-5" />
                         </div>
-                      )}
-
-                      {/* New File selector */}
-                      <label className="border-2 border-dashed border-pink-300 hover:border-pink-400 bg-pink-50/40 rounded-2xl p-4 text-center transition-colors cursor-pointer block">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setMediaAiFile(file);
-                              setMediaAiPreview(URL.createObjectURL(file));
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        {mediaAiPreview ? (
-                          <div className="flex items-center gap-3">
-                            <img
-                              src={mediaAiPreview}
-                              alt="Preview"
-                              className="w-16 h-16 rounded-xl object-contain bg-white shadow-xs"
-                            />
-                            <div className="text-left text-xs">
-                              <p className="font-bold text-slate-800 truncate max-w-[180px]">
-                                {mediaAiFile?.name}
-                              </p>
-                              <span className="text-pink-600 font-semibold">
-                                Обрано новий файл (натисніть «Завантажити»)
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-slate-500 text-xs py-2">
-                            <p className="font-bold text-slate-700">
-                              Оберіть новий файл зображення (PNG, JPG, SVG)
-                            </p>
-                            <span className="text-[11px] text-slate-400">
-                              Натисніть для вибору з комп'ютера
-                            </span>
-                          </div>
-                        )}
-                      </label>
+                        <div>
+                          <h3 className="text-base font-extrabold text-purple-950">
+                            Додаткові матеріали до малюнка: «{currentDrawing.title}»
+                          </h3>
+                          <p className="text-xs text-purple-700">
+                            Завантажте файл AI-переосмисленого малюнка або відео-анімації з комп'ютера
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setEditingDrawingId(null)}
+                        className="text-slate-400 hover:text-slate-700 font-extrabold text-sm px-2 py-1 rounded-lg hover:bg-white/80 transition-colors"
+                      >
+                        ✕ Закрити
+                      </button>
                     </div>
 
-                    {/* SECTION 2: VIDEO FILE UPLOAD */}
-                    <div className="bg-white/90 rounded-2xl p-4 border border-purple-200/80 space-y-3 shadow-xs">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                          <Video className="w-4 h-4 text-purple-600" />
-                          <span>2. Похідна анімація (Відеофайл)</span>
-                        </label>
-                        {currentDrawing.videoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveDerivative(currentDrawing.id, 'remove_video')}
-                            className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
-                          >
-                            Видалити поточне ✕
-                          </button>
-                        )}
+                    {mediaSavedSuccess && (
+                      <div className="p-3.5 rounded-2xl bg-emerald-100/90 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <span>✓ Матеріали успішно завантажено та збережено для цього малюнка!</span>
                       </div>
+                    )}
 
-                      {/* Current Video preview */}
-                      {currentDrawing.videoUrl && (
-                        <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-700 flex items-center justify-center">
-                          {currentDrawing.videoUrl.endsWith('.mp4') || currentDrawing.videoUrl.endsWith('.webm') ? (
-                            <video
-                              src={currentDrawing.videoUrl}
-                              controls
-                              className="w-full h-full object-contain"
-                            />
-                          ) : (
-                            <img
-                              src={currentDrawing.videoUrl}
-                              alt="Current Animation"
-                              className="w-full h-full object-contain"
-                            />
+                    {mediaUploadError && (
+                      <div className="p-3.5 rounded-2xl bg-rose-100/90 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
+                        <span>{mediaUploadError}</span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {/* SECTION 1: AI IMAGE FILE UPLOAD */}
+                      <div className="bg-white/90 rounded-2xl p-4 border border-purple-200/80 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <ImageIcon className="w-4 h-4 text-pink-500" />
+                            <span>1. Похідний AI-малюнок (Зображення)</span>
+                          </label>
+                          {currentDrawing.derivedImages && currentDrawing.derivedImages.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDerivative(currentDrawing.id, 'remove_ai')}
+                              className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                            >
+                              Видалити поточний ✕
+                            </button>
                           )}
-                          <span className="absolute bottom-2 left-2 bg-purple-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                            Прикріплене відео
-                          </span>
                         </div>
-                      )}
 
-                      {/* New File selector */}
-                      <label className="border-2 border-dashed border-purple-300 hover:border-purple-400 bg-purple-50/40 rounded-2xl p-4 text-center transition-colors cursor-pointer block">
-                        <input
-                          type="file"
-                          accept="video/*,image/svg+xml"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setMediaVideoFile(file);
-                              setMediaVideoPreview(URL.createObjectURL(file));
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        {mediaVideoPreview ? (
-                          <div className="flex items-center gap-3">
-                            <div className="w-16 h-16 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shrink-0 font-bold text-xs">
-                              🎬
-                            </div>
-                            <div className="text-left text-xs">
-                              <p className="font-bold text-slate-800 truncate max-w-[180px]">
-                                {mediaVideoFile?.name}
-                              </p>
-                              <span className="text-purple-600 font-semibold">
-                                Обрано новий відеофайл (натисніть «Завантажити»)
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-slate-500 text-xs py-2">
-                            <p className="font-bold text-slate-700">
-                              Оберіть відеофайл (MP4, WebM, MOV, SVG)
-                            </p>
-                            <span className="text-[11px] text-slate-400">
-                              Натисніть для вибору з комп'ютера
+                        {/* Current AI image preview */}
+                        {currentDrawing.derivedImages && currentDrawing.derivedImages[0] && (
+                          <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+                            <img
+                              src={currentDrawing.derivedImages[0]}
+                              alt="Current AI"
+                              className="w-full h-full object-contain p-1"
+                            />
+                            <span className="absolute bottom-2 left-2 bg-pink-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                              Прикріплений AI-арт
                             </span>
                           </div>
                         )}
-                      </label>
+
+                        {/* New File selector */}
+                        <label className="border-2 border-dashed border-pink-300 hover:border-pink-400 bg-pink-50/40 rounded-2xl p-4 text-center transition-colors cursor-pointer block">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setMediaAiFile(file);
+                                setMediaAiPreview(URL.createObjectURL(file));
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          {mediaAiPreview ? (
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={mediaAiPreview}
+                                alt="Preview"
+                                className="w-16 h-16 object-cover rounded-xl border border-pink-300 shrink-0"
+                              />
+                              <div className="text-left text-xs">
+                                <p className="font-bold text-slate-800 truncate max-w-[180px]">
+                                  {mediaAiFile?.name}
+                                </p>
+                                <span className="text-pink-600 font-semibold">
+                                  Обрано новий файл (натисніть «Завантажити»)
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-slate-500 text-xs py-2">
+                              <p className="font-bold text-slate-700">Оберіть зображення AI-арту</p>
+                              <span className="text-[11px] text-slate-400">JPG, PNG, WEBP</span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+
+                      {/* SECTION 2: VIDEO ANIMATION FILE UPLOAD */}
+                      <div className="bg-white/90 rounded-2xl p-4 border border-purple-200/80 space-y-3 shadow-xs">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                            <Video className="w-4 h-4 text-purple-600" />
+                            <span>2. Відео-анімація (Файл з комп'ютера)</span>
+                          </label>
+                          {currentDrawing.videoUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDerivative(currentDrawing.id, 'remove_video')}
+                              className="text-[11px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                            >
+                              Видалити поточне ✕
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Current Video Preview */}
+                        {currentDrawing.videoUrl && (
+                          <div className="relative aspect-video rounded-xl overflow-hidden bg-black border border-slate-200 flex items-center justify-center">
+                            {currentDrawing.videoUrl.endsWith('.svg') ? (
+                              <img
+                                src={currentDrawing.videoUrl}
+                                alt="SVG Animation"
+                                className="w-full h-full object-contain"
+                              />
+                            ) : (
+                              <video
+                                src={currentDrawing.videoUrl}
+                                controls
+                                className="w-full h-full object-contain"
+                              />
+                            )}
+                            <span className="absolute bottom-2 left-2 bg-purple-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                              Прикріплена анімація
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Video File selector */}
+                        <label className="border-2 border-dashed border-purple-300 hover:border-purple-400 bg-purple-50/40 rounded-2xl p-4 text-center transition-colors cursor-pointer block">
+                          <input
+                            type="file"
+                            accept="video/*,.svg"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setMediaVideoFile(file);
+                                setMediaVideoPreview(URL.createObjectURL(file));
+                              }
+                            }}
+                            className="hidden"
+                          />
+                          {mediaVideoPreview ? (
+                            <div className="flex items-center gap-3">
+                              <div className="w-16 h-16 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 shrink-0 font-bold text-xs">
+                                🎬
+                              </div>
+                              <div className="text-left text-xs">
+                                <p className="font-bold text-slate-800 truncate max-w-[180px]">
+                                  {mediaVideoFile?.name}
+                                </p>
+                                <span className="text-purple-600 font-semibold">
+                                  Обрано новий відеофайл (натисніть «Завантажити»)
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-slate-500 text-xs py-2">
+                              <p className="font-bold text-slate-700">
+                                Оберіть відеофайл (MP4, WebM, MOV, SVG)
+                              </p>
+                              <span className="text-[11px] text-slate-400">
+                                Натисніть для вибору з комп'ютера
+                              </span>
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Submit / Upload Button */}
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingDrawingId(null)}
+                        className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 transition-colors cursor-pointer"
+                      >
+                        Скасувати
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isUploadingMedia || (!mediaAiFile && !mediaVideoFile)}
+                        onClick={() => handleUploadMedia(currentDrawing.id)}
+                        className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        <span>
+                          {isUploadingMedia ? 'Завантажую файли...' : 'Завантажити матеріали до малюнка 🚀'}
+                        </span>
+                      </button>
                     </div>
                   </div>
+                );
+              })()}
 
-                  {/* Submit / Upload Button */}
-                  <div className="flex items-center justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setEditingDrawingId(null)}
-                      className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs border border-slate-200 transition-colors cursor-pointer"
+              {/* Drawings Grid or Empty State */}
+              {filteredManageDrawings.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-2">
+                  <p className="text-sm font-bold text-slate-600">
+                    За запитом «{manageSearch}» малюнків не знайдено
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setManageSearch('')}
+                    className="text-xs text-purple-600 hover:text-purple-700 hover:underline font-bold cursor-pointer"
+                  >
+                    Скинути фільтр пошуку
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredManageDrawings.map((d) => (
+                    <div
+                      key={d.id}
+                      className="bg-slate-50 border border-slate-200 hover:border-purple-200 rounded-2xl p-3 flex flex-col justify-between space-y-3 transition-colors shadow-xs"
                     >
-                      Скасувати
-                    </button>
+                      <div className="space-y-2">
+                        <div className="aspect-[4/3] rounded-xl overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-2 relative">
+                          <img
+                            src={d.imageUrl}
+                            alt={d.title}
+                            style={{ transform: `rotate(${d.rotation || 0}deg)` }}
+                            className="w-full h-full object-contain"
+                          />
+                          
+                          {/* Media Badges */}
+                          <div className="absolute top-2 right-2 flex gap-1">
+                            {d.derivedImages && d.derivedImages.length > 0 && (
+                              <span className="bg-pink-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
+                                AI
+                              </span>
+                            )}
+                            {d.videoUrl && (
+                              <span className="bg-purple-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
+                                🎬
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
-                    <button
-                      type="button"
-                      disabled={isUploadingMedia || (!mediaAiFile && !mediaVideoFile)}
-                      onClick={() => handleUploadMedia(currentDrawing.id)}
-                      className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>
-                        {isUploadingMedia ? 'Завантажую файли...' : 'Завантажити матеріали до малюнка 🚀'}
-                      </span>
-                    </button>
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                              {d.category}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold">
+                              {d.rotation || 0}°
+                            </span>
+                          </div>
+                          <h4 className="font-extrabold text-sm text-slate-800 mt-1 leading-snug">
+                            {d.title}
+                          </h4>
+                          {d.date && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {new Date(d.date).toLocaleDateString('uk-UA')}
+                            </p>
+                          )}
+                          {d.description && (
+                            <div className="mt-2 bg-purple-50/80 border border-purple-100/90 rounded-xl p-2 text-[11px] text-purple-900 leading-snug">
+                              <span className="font-bold text-pink-600 block text-[10px] uppercase">
+                                Розповідь Тані:
+                              </span>
+                              <p className="italic line-clamp-2">«{d.description}»</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions: Edit, Rotate, Media, Delete */}
+                      <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 text-xs gap-1 flex-wrap">
+                        {/* Edit Title, Story, Category, Date */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(d)}
+                          className="text-indigo-700 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="Редагувати назву, опис, категорію або дату"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Змінити</span>
+                        </button>
+
+                        {/* Rotate 90 deg */}
+                        <button
+                          type="button"
+                          onClick={() => handleRotateDrawing(d.id)}
+                          className="text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title={t.btnRotate90}
+                        >
+                          <RotateCw className="w-3.5 h-3.5" />
+                          <span>90°</span>
+                        </button>
+
+                        {/* Manage Derivatives */}
+                        <button
+                          type="button"
+                          onClick={() => handleOpenMediaEditor(d)}
+                          className="text-purple-700 hover:text-purple-800 font-bold flex items-center gap-1 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                          title="AI Арт та Відео"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>Медіа</span>
+                        </button>
+
+                        {/* Delete */}
+                        <button
+                          onClick={() => handleDeleteDrawing(d.id)}
+                          className="text-rose-600 hover:text-rose-700 p-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                          title={t.btnDelete}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* EDIT DRAWING MODAL DIALOG */}
+        {editingDrawing && (
+          <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-lg w-full shadow-2xl border border-purple-100 space-y-4 animate-in zoom-in-95 duration-150 my-8">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Pencil className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-800">
+                      Редагування малюнка
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Змініть назву, дитячу розповідь або категорію
+                    </p>
                   </div>
                 </div>
-              );
-            })()}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {drawings.map((d) => (
-                <div
-                  key={d.id}
-                  className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col justify-between space-y-3"
+                <button
+                  type="button"
+                  onClick={() => setEditingDrawing(null)}
+                  className="text-slate-400 hover:text-slate-600 font-extrabold text-sm px-2.5 py-1 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  <div className="space-y-2">
-                    <div className="aspect-[4/3] rounded-xl overflow-hidden bg-white border border-slate-100 flex items-center justify-center p-2 relative">
-                      <img
-                        src={d.imageUrl}
-                        alt={d.title}
-                        style={{ transform: `rotate(${d.rotation || 0}deg)` }}
-                        className="w-full h-full object-contain"
-                      />
-                      
-                      {/* Media Badges */}
-                      <div className="absolute top-2 right-2 flex gap-1">
-                        {d.derivedImages && d.derivedImages.length > 0 && (
-                          <span className="bg-pink-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
-                            AI
-                          </span>
-                        )}
-                        {d.videoUrl && (
-                          <span className="bg-purple-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-xs">
-                            🎬
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                  ✕
+                </button>
+              </div>
 
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                          {d.category}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-bold">
-                          {d.rotation || 0}°
-                        </span>
-                      </div>
-                      <h4 className="font-extrabold text-sm text-slate-800 mt-1">
-                        {d.title}
-                      </h4>
-                      {d.date && (
-                        <p className="text-[11px] text-slate-400">
-                          {new Date(d.date).toLocaleDateString('uk-UA')}
-                        </p>
-                      )}
-                    </div>
+              {/* Small Image Preview */}
+              <div className="flex items-center gap-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl p-3">
+                <div className="w-20 h-20 bg-white rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 p-1">
+                  <img
+                    src={editingDrawing.imageUrl}
+                    alt={editingDrawing.title}
+                    style={{ transform: `rotate(${editingDrawing.rotation || 0}deg)` }}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="text-xs space-y-1 min-w-0">
+                  <p className="font-bold text-slate-700 truncate">
+                    Файл: {editingDrawing.imageUrl.split('/').pop()}
+                  </p>
+                  <p className="text-slate-500">
+                    Поточна категорія: <span className="font-bold text-purple-700">{editingDrawing.category}</span>
+                  </p>
+                  {editingDrawing.likesCount !== undefined && (
+                    <p className="text-amber-600 font-semibold">
+                      ⭐ {editingDrawing.likesCount} зірочок
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {editSuccess && (
+                <div className="p-3.5 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>✓ Зміни успішно збережено!</span>
+                </div>
+              )}
+
+              {editError && (
+                <div className="p-3.5 rounded-2xl bg-rose-100 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-700 shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
+
+              {/* Form */}
+              <form onSubmit={handleSaveEdit} className="space-y-4">
+                {/* Title */}
+                <div>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                    Назва малюнка *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="наприклад: Зіркова Гілочка"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  />
+                </div>
+
+                {/* Description / Child Story */}
+                <div>
+                  <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                    Дитяча розповідь / Опис малюнка
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    placeholder="Що розповіла Таня про цей малюнок? (наприклад: «Ця зірочка світить уночі маленьким котикам...»)"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 leading-relaxed"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Category */}
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                      Категорія
+                    </label>
+                    <select
+                      value={editCategory}
+                      onChange={(e) => setEditCategory(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer"
+                    >
+                      <option value="Тваринки">🐱 Тваринки</option>
+                      <option value="Казки">🏰 Казки</option>
+                      <option value="Космос">🚀 Космос</option>
+                      <option value="Родина">👨‍👩‍👧 Родина</option>
+                      <option value="Природа">🌸 Природа</option>
+                      <option value="Малюнки">🎨 Малюнки</option>
+                      <option value="custom">✏️ Інша категорія...</option>
+                    </select>
+
+                    {editCategory === 'custom' && (
+                      <input
+                        type="text"
+                        placeholder="Введіть власну назву"
+                        value={editCustomCategory}
+                        onChange={(e) => setEditCustomCategory(e.target.value)}
+                        className="w-full mt-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    )}
                   </div>
 
-                  {/* Actions: Rotate, Media, Delete */}
-                  <div className="flex items-center justify-between border-t border-slate-200/60 pt-2 text-xs">
-                    {/* Rotate 90 deg */}
-                    <button
-                      type="button"
-                      onClick={() => handleRotateDrawing(d.id)}
-                      className="text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                      title={t.btnRotate90}
-                    >
-                      <RotateCw className="w-3.5 h-3.5" />
-                      <span>{t.btnRotate90}</span>
-                    </button>
-
-                    {/* Manage Derivatives */}
-                    <button
-                      type="button"
-                      onClick={() => handleOpenMediaEditor(d)}
-                      className="text-purple-700 hover:text-purple-800 font-bold flex items-center gap-1 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                      title="AI Арт та Відео"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Медіа</span>
-                    </button>
-
-                    {/* Delete */}
-                    <button
-                      onClick={() => handleDeleteDrawing(d.id)}
-                      className="text-rose-600 hover:text-rose-700 p-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                      title={t.btnDelete}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  {/* Date */}
+                  <div>
+                    <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                      Дата створення (необов'язково)
+                    </label>
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    />
+                    <span className="text-[10px] text-slate-400 block mt-1">
+                      Залиште порожнім, якщо дата невідома
+                    </span>
                   </div>
                 </div>
-              ))}
+
+                {/* Submit & Cancel */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingDrawing(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Скасувати
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={isSavingEdit}
+                    className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold rounded-xl text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>{isSavingEdit ? 'Зберігаю...' : 'Зберегти зміни 💾'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
+
       </main>
     </div>
   );
